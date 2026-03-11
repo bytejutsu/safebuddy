@@ -1,4 +1,3 @@
-// lib/pages/settings/setting_page.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
