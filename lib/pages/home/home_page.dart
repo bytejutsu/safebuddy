@@ -2,14 +2,14 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
-class SettingsPage extends StatefulWidget {
-  const SettingsPage({super.key});
+class HomePage extends StatefulWidget {
+  const HomePage({super.key});
 
   @override
-  State<SettingsPage> createState() => _SettingsPageState();
+  State<HomePage> createState() => _HomePageState();
 }
 
-class _SettingsPageState extends State<SettingsPage> {
+class _HomePageState extends State<HomePage> {
   final RxBool isLocationSharingEnabled = true.obs;
   final RxBool isPeriodicalChecksEnabled = true.obs;
   final RxBool isAIProtectionEnabled = true.obs;

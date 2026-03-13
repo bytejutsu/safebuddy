@@ -1,6 +1,6 @@
-// lib/pages/auth/signup_page.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'signin_page.dart';
 
 class SignUpPage extends StatefulWidget {
@@ -14,13 +14,16 @@ class _SignUpPageState extends State<SignUpPage> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _confirmPasswordController =
-      TextEditingController();
+  TextEditingController();
 
   bool _obscurePassword = true;
   bool _obscureConfirm = true;
+  bool _isLoading = false;
 
   static const _blue = Color(0xFF2196F3);
   static const _indigoText = Color(0xFF5C6BC0);
+
+  SupabaseClient get _supabase => Supabase.instance.client;
 
   @override
   void dispose() {
@@ -54,8 +57,8 @@ class _SignUpPageState extends State<SignUpPage> {
                     ),
                     const SizedBox(height: 6),
                     GestureDetector(
-                      onTap: () => Get.to(() => SignInPage()),
-                      child: Text(
+                      onTap: () => Get.to(() => const SignInPage()),
+                      child: const Text(
                         'Already have an account? Click here',
                         style: TextStyle(
                           fontSize: 14,
@@ -82,7 +85,8 @@ class _SignUpPageState extends State<SignUpPage> {
                       suffixIcon: _eyeIcon(
                         visible: _obscurePassword,
                         onTap: () => setState(
-                            () => _obscurePassword = !_obscurePassword),
+                              () => _obscurePassword = !_obscurePassword,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -94,8 +98,9 @@ class _SignUpPageState extends State<SignUpPage> {
                       obscure: _obscureConfirm,
                       suffixIcon: _eyeIcon(
                         visible: _obscureConfirm,
-                        onTap: () =>
-                            setState(() => _obscureConfirm = !_obscureConfirm),
+                        onTap: () => setState(
+                              () => _obscureConfirm = !_obscureConfirm,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 36),
@@ -103,7 +108,7 @@ class _SignUpPageState extends State<SignUpPage> {
                       width: double.infinity,
                       height: 50,
                       child: ElevatedButton(
-                        onPressed: _handleSignUp,
+                        onPressed: _isLoading ? null : _handleSignUp,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: _blue,
                           foregroundColor: Colors.white,
@@ -112,7 +117,16 @@ class _SignUpPageState extends State<SignUpPage> {
                             borderRadius: BorderRadius.circular(10),
                           ),
                         ),
-                        child: const Text(
+                        child: _isLoading
+                            ? const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.5,
+                            color: Colors.white,
+                          ),
+                        )
+                            : const Text(
                           'Sign up',
                           style: TextStyle(
                             fontSize: 16,
@@ -148,7 +162,7 @@ class _SignUpPageState extends State<SignUpPage> {
                       width: double.infinity,
                       height: 50,
                       child: ElevatedButton(
-                        onPressed: _handleGoogleSignUp,
+                        onPressed: _isLoading ? null : _handleGoogleSignUp,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: _blue,
                           foregroundColor: Colors.white,
@@ -186,13 +200,13 @@ class _SignUpPageState extends State<SignUpPage> {
   }
 
   Widget _buildLabel(String text) => Text(
-        text,
-        style: const TextStyle(
-          fontSize: 13,
-          color: _indigoText,
-          fontWeight: FontWeight.w500,
-        ),
-      );
+    text,
+    style: const TextStyle(
+      fontSize: 13,
+      color: _indigoText,
+      fontWeight: FontWeight.w500,
+    ),
+  );
 
   Widget _eyeIcon({required bool visible, required VoidCallback onTap}) =>
       IconButton(
@@ -221,7 +235,7 @@ class _SignUpPageState extends State<SignUpPage> {
         hintStyle: TextStyle(color: Colors.grey[400], fontSize: 15),
         suffixIcon: suffixIcon,
         contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
           borderSide: BorderSide(color: Colors.grey[300]!),
@@ -236,47 +250,86 @@ class _SignUpPageState extends State<SignUpPage> {
     );
   }
 
-  void _handleSignUp() {
-    final email = _emailController.text.trim();
+  Future<void> _handleSignUp() async {
+    final email = _emailController.text.trim().toLowerCase();
     final password = _passwordController.text;
     final confirm = _confirmPasswordController.text;
 
     if (email.isEmpty || password.isEmpty || confirm.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please fill in all fields'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      _showSnackBar('Please fill in all fields', isError: true);
+      return;
+    }
+
+    if (!GetUtils.isEmail(email)) {
+      _showSnackBar('Please enter a valid email address', isError: true);
       return;
     }
 
     if (password != confirm) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Passwords do not match'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      _showSnackBar('Passwords do not match', isError: true);
       return;
     }
 
     if (password.length < 6) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Password must be at least 6 characters'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      _showSnackBar('Password must be at least 6 characters', isError: true);
       return;
     }
 
-    debugPrint('Sign up: $email');
-    Get.offAllNamed('/home');
+    setState(() => _isLoading = true);
+
+    try {
+      final AuthResponse response = await _supabase.auth.signUp(
+        email: email,
+        password: password,
+      );
+
+      if (!mounted) return;
+
+      final session = response.session;
+      final user = response.user;
+
+      if (session != null) {
+        _showSnackBar('Account created successfully');
+        Get.offAllNamed('/home');
+        return;
+      }
+
+      if (user != null) {
+        _showSnackBar(
+          'Account created. Please check your email to confirm your account.',
+        );
+        Get.offAll(() => const SignInPage());
+        return;
+      }
+
+      _showSnackBar('Signup completed, but no user was returned.', isError: true);
+    } on AuthException catch (e) {
+      if (!mounted) return;
+      _showSnackBar(e.message, isError: true);
+    } catch (e) {
+      if (!mounted) return;
+      _showSnackBar('Unexpected error: $e', isError: true);
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   void _handleGoogleSignUp() {
-    debugPrint('Google sign up tapped');
-    Get.offAllNamed('/home');
+    _showSnackBar('Google signup is not connected yet', isError: true);
+  }
+
+  void _showSnackBar(String message, {bool isError = false}) {
+    Get.snackbar(
+      isError ? 'Error' : 'Success',
+      message,
+      snackPosition: SnackPosition.BOTTOM,
+      backgroundColor: isError ? Colors.red : Colors.green,
+      colorText: Colors.white,
+      margin: const EdgeInsets.all(12),
+      borderRadius: 8,
+      duration: const Duration(seconds: 3),
+    );
   }
 }

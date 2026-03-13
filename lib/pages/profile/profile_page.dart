@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ProfilePage extends StatefulWidget {
   ProfilePage({super.key});
@@ -217,28 +218,70 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  void _signOut() {
+  Future<void> _signOut() async {
     showDialog(
       context: context,
       builder: (ctx) {
         return AlertDialog(
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Text('Sign Out',
-              style: TextStyle(fontWeight: FontWeight.bold)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: const Text(
+            'Sign Out',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
           content: const Text('Are you sure you want to sign out?'),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('Cancel')),
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: _red),
-              onPressed: () {
+              onPressed: () async {
                 Navigator.pop(ctx);
-                Get.offAllNamed('/signin');
+
+                try {
+                  await Supabase.instance.client.auth.signOut();
+
+                  Get.snackbar(
+                    'Signed out',
+                    'You have been signed out successfully.',
+                    snackPosition: SnackPosition.BOTTOM,
+                    backgroundColor: _green,
+                    colorText: Colors.white,
+                    borderRadius: 12,
+                    margin: const EdgeInsets.all(16),
+                    duration: const Duration(seconds: 2),
+                  );
+
+                  Get.offAllNamed('/signin');
+                } on AuthException catch (e) {
+                  Get.snackbar(
+                    'Error',
+                    e.message,
+                    snackPosition: SnackPosition.BOTTOM,
+                    backgroundColor: _red,
+                    colorText: Colors.white,
+                    borderRadius: 12,
+                    margin: const EdgeInsets.all(16),
+                  );
+                } catch (e) {
+                  Get.snackbar(
+                    'Error',
+                    'Could not sign out. Please try again.',
+                    snackPosition: SnackPosition.BOTTOM,
+                    backgroundColor: _red,
+                    colorText: Colors.white,
+                    borderRadius: 12,
+                    margin: const EdgeInsets.all(16),
+                  );
+                }
               },
-              child: const Text('Sign Out',
-                  style: TextStyle(color: Colors.white)),
+              child: const Text(
+                'Sign Out',
+                style: TextStyle(color: Colors.white),
+              ),
             ),
           ],
         );
@@ -494,227 +537,262 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding:
-            const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      body: SafeArea(
+        bottom: false,
+        child: ListView(
+          padding: EdgeInsets.fromLTRB(
+            20,
+            16,
+            20,
+            kBottomNavigationBarHeight +
+                MediaQuery.of(context).padding.bottom +
+                24,
+          ),
           children: [
-            Center(
-              child: Column(
-                children: [
-                  _buildAvatar(),
-                  const SizedBox(height: 12),
-                  GestureDetector(
-                    onTap: _editName,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          _name.isEmpty ? 'Tap to set your name' : _name,
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: _name.isEmpty
-                                ? Colors.grey[400]
-                                : Colors.black87,
+              Center(
+                child: Column(
+                  children: [
+                    _buildAvatar(),
+                    const SizedBox(height: 12),
+                    GestureDetector(
+                      onTap: _editName,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            _name.isEmpty ? 'Tap to set your name' : _name,
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: _name.isEmpty
+                                  ? Colors.grey[400]
+                                  : Colors.black87,
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 6),
-                        const Icon(Icons.edit,
-                            size: 16, color: Colors.grey),
-                      ],
-                    ),
-                  ),
-                  if (_name.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: _green.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.verified,
-                                size: 14, color: _green),
-                            const SizedBox(width: 4),
-                            Text('Profile saved',
-                                style: TextStyle(
-                                    fontSize: 12,
-                                    color: _green,
-                                    fontWeight: FontWeight.w500)),
-                          ],
-                        ),
+                          const SizedBox(width: 6),
+                          const Icon(Icons.edit, size: 16, color: Colors.grey),
+                        ],
                       ),
                     ),
-                ],
+                    if (_name.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: _green.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.verified, size: 14, color: _green),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Profile saved',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: _green,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(height: 24),
-            const Text('Contact Info',
+              const SizedBox(height: 24),
+              const Text(
+                'Contact Info',
                 style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: _blue)),
-            const SizedBox(height: 10),
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: const [
-                  BoxShadow(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: _blue,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: const [
+                    BoxShadow(
                       color: Colors.black12,
                       blurRadius: 10,
-                      offset: Offset(0, 2))
-                ],
-              ),
-              child: Column(
-                children: [
-                  _buildRow(
+                      offset: Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    _buildRow(
                       Icons.phone_outlined,
                       'Phone',
                       _phoneCtrl,
                       '(480) 555-0103',
                       _editPhone,
                       TextInputType.phone,
-                      () => setState(() => _editPhone = true),
-                      () => setState(() => _editPhone = false)),
-                  Divider(
+                          () => setState(() => _editPhone = true),
+                          () => setState(() => _editPhone = false),
+                    ),
+                    Divider(
                       height: 1,
                       indent: 16,
                       endIndent: 16,
-                      color: Colors.grey[100]),
-                  _buildRow(
+                      color: Colors.grey[100],
+                    ),
+                    _buildRow(
                       Icons.email_outlined,
                       'Email',
                       _emailCtrl,
                       'your@email.com',
                       _editEmail,
                       TextInputType.emailAddress,
-                      () => setState(() => _editEmail = true),
-                      () => setState(() => _editEmail = false)),
-                  Divider(
+                          () => setState(() => _editEmail = true),
+                          () => setState(() => _editEmail = false),
+                    ),
+                    Divider(
                       height: 1,
                       indent: 16,
                       endIndent: 16,
-                      color: Colors.grey[100]),
-                  _buildRow(
+                      color: Colors.grey[100],
+                    ),
+                    _buildRow(
                       Icons.cake_outlined,
                       'Birthday',
                       _dobCtrl,
                       'DD / MM / YYYY',
                       _editDob,
                       TextInputType.datetime,
-                      () => setState(() => _editDob = true),
-                      () => setState(() => _editDob = false)),
-                  Divider(
+                          () => setState(() => _editDob = true),
+                          () => setState(() => _editDob = false),
+                    ),
+                    Divider(
                       height: 1,
                       indent: 16,
                       endIndent: 16,
-                      color: Colors.grey[100]),
-                  _buildRow(
+                      color: Colors.grey[100],
+                    ),
+                    _buildRow(
                       Icons.home_outlined,
                       'Address',
                       _addrCtrl,
                       'Your home address',
                       _editAddr,
                       TextInputType.text,
-                      () => setState(() => _editAddr = true),
-                      () => setState(() => _editAddr = false)),
-                ],
+                          () => setState(() => _editAddr = true),
+                          () => setState(() => _editAddr = false),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              height: 52,
-              child: ElevatedButton.icon(
-                onPressed: _isSaving ? null : _saveProfile,
-                icon: _isSaving
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                            color: Colors.white, strokeWidth: 2))
-                    : const Icon(Icons.save_outlined,
-                        color: Colors.white, size: 20),
-                label: Text(
-                  _isSaving ? 'Saving...' : 'Save Profile',
-                  style: const TextStyle(
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: ElevatedButton.icon(
+                  onPressed: _isSaving ? null : _saveProfile,
+                  icon: _isSaving
+                      ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
+                  )
+                      : const Icon(Icons.save_outlined, color: Colors.white, size: 20),
+                  label: Text(
+                    _isSaving ? 'Saving...' : 'Save Profile',
+                    style: const TextStyle(
                       color: Colors.white,
                       fontSize: 16,
-                      fontWeight: FontWeight.w600),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _blue,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14)),
-                  elevation: 0,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _blue,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    elevation: 0,
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 24),
-            const Text('Sharing History',
+              const SizedBox(height: 24),
+              const Text(
+                'Sharing History',
                 style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: _blue)),
-            const SizedBox(height: 10),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 32),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: const [
-                  BoxShadow(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: _blue,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 32),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: const [
+                    BoxShadow(
                       color: Colors.black12,
                       blurRadius: 10,
-                      offset: Offset(0, 2))
-                ],
-              ),
-              child: Column(
-                children: [
-                  Icon(Icons.history, size: 40, color: Colors.grey[300]),
-                  const SizedBox(height: 10),
-                  Text('No sharing history yet',
+                      offset: Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    Icon(Icons.history, size: 40, color: Colors.grey[300]),
+                    const SizedBox(height: 10),
+                    Text(
+                      'No sharing history yet',
                       style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[400],
-                          fontWeight: FontWeight.w500)),
-                  const SizedBox(height: 4),
-                  Text('Will be connected to database soon',
-                      style: TextStyle(
-                          fontSize: 12, color: Colors.grey[400])),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              height: 52,
-              child: ElevatedButton.icon(
-                onPressed: _signOut,
-                icon: const Icon(Icons.logout,
-                    color: Colors.white, size: 20),
-                label: const Text('Sign out',
-                    style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _red,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14)),
-                  elevation: 0,
+                        fontSize: 14,
+                        color: Colors.grey[400],
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Will be connected to database soon',
+                      style: TextStyle(fontSize: 12, color: Colors.grey[400]),
+                    ),
+                  ],
                 ),
               ),
-            ),
-            const SizedBox(height: 24),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: ElevatedButton.icon(
+                  onPressed: _signOut,
+                  icon: const Icon(Icons.logout, color: Colors.white, size: 20),
+                  label: const Text(
+                    'Sign out',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _red,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    elevation: 0,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
           ],
         ),
       ),

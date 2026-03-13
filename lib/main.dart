@@ -5,7 +5,7 @@ import 'controllers/contacts_controller.dart';
 import 'pages/auth/signin_page.dart';
 import 'pages/auth/signup_page.dart';
 import 'pages/globe_page.dart';
-import 'pages/settings/setting_page.dart';
+import 'pages/home/home_page.dart';
 import 'pages/settings/emergency_settings_page.dart';
 import 'pages/contacts/contacts_page.dart';
 import 'pages/contacts/call_page.dart';
@@ -41,7 +41,7 @@ class MyApp extends StatelessWidget {
       getPages: [
         GetPage(name: '/signin',   page: () => SignInPage()),
         GetPage(name: '/signup',   page: () => SignUpPage()),
-        GetPage(name: '/home',     page: () => SettingsPage()),
+        GetPage(name: '/home',     page: () => HomePage()),
         GetPage(name: '/safety',   page: () => GlobePage()),
         GetPage(name: '/settings', page: () => EmergencySettingsPage()),
         GetPage(name: '/contacts', page: () => ContactsPage()),

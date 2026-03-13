@@ -1,6 +1,6 @@
-// lib/pages/auth/signin_page.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'signup_page.dart';
 
 class SignInPage extends StatefulWidget {
@@ -13,10 +13,14 @@ class SignInPage extends StatefulWidget {
 class _SignInPageState extends State<SignInPage> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+
   bool _obscurePassword = true;
+  bool _isLoading = false;
 
   static const _blue = Color(0xFF2196F3);
   static const _indigoText = Color(0xFF5C6BC0);
+
+  SupabaseClient get _supabase => Supabase.instance.client;
 
   @override
   void dispose() {
@@ -49,7 +53,7 @@ class _SignInPageState extends State<SignInPage> {
                     ),
                     const SizedBox(height: 6),
                     GestureDetector(
-                      onTap: () => Get.to(() => SignUpPage()),
+                      onTap: () => Get.to(() => const SignUpPage()),
                       child: RichText(
                         text: const TextSpan(
                           style: TextStyle(fontSize: 14, color: Colors.black87),
@@ -113,7 +117,7 @@ class _SignInPageState extends State<SignInPage> {
                       width: double.infinity,
                       height: 50,
                       child: ElevatedButton(
-                        onPressed: _handleSignIn,
+                        onPressed: _isLoading ? null : _handleSignIn,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: _blue,
                           foregroundColor: Colors.white,
@@ -122,7 +126,16 @@ class _SignInPageState extends State<SignInPage> {
                             borderRadius: BorderRadius.circular(10),
                           ),
                         ),
-                        child: const Text(
+                        child: _isLoading
+                            ? const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.5,
+                            color: Colors.white,
+                          ),
+                        )
+                            : const Text(
                           'Sign in',
                           style: TextStyle(
                             fontSize: 16,
@@ -158,7 +171,7 @@ class _SignInPageState extends State<SignInPage> {
                       width: double.infinity,
                       height: 50,
                       child: ElevatedButton(
-                        onPressed: _handleGoogleSignIn,
+                        onPressed: _isLoading ? null : _handleGoogleSignIn,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: _blue,
                           foregroundColor: Colors.white,
@@ -215,7 +228,7 @@ class _SignInPageState extends State<SignInPage> {
         hintStyle: TextStyle(color: Colors.grey[400], fontSize: 15),
         suffixIcon: suffixIcon,
         contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
           borderSide: BorderSide(color: Colors.grey[300]!),
@@ -230,26 +243,64 @@ class _SignInPageState extends State<SignInPage> {
     );
   }
 
-  void _handleSignIn() {
-    final email = _emailController.text.trim();
+  Future<void> _handleSignIn() async {
+    final email = _emailController.text.trim().toLowerCase();
     final password = _passwordController.text;
 
     if (email.isEmpty || password.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please fill in all fields'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      _showSnackBar('Please fill in all fields', isError: true);
       return;
     }
 
-    debugPrint('Sign in: $email / $password');
-    Get.offAllNamed('/home');
+    if (!GetUtils.isEmail(email)) {
+      _showSnackBar('Please enter a valid email address', isError: true);
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      final response = await _supabase.auth.signInWithPassword(
+        email: email,
+        password: password,
+      );
+
+      if (!mounted) return;
+
+      if (response.session != null && response.user != null) {
+        _showSnackBar('Signed in successfully');
+        Get.offAllNamed('/home');
+        return;
+      }
+
+      _showSnackBar('Sign in failed. Please try again.', isError: true);
+    } on AuthException catch (e) {
+      if (!mounted) return;
+      _showSnackBar(e.message, isError: true);
+    } catch (e) {
+      if (!mounted) return;
+      _showSnackBar('Unexpected error: $e', isError: true);
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   void _handleGoogleSignIn() {
-    debugPrint('Google sign in tapped');
-    Get.offAllNamed('/home');
+    _showSnackBar('Google sign in is not connected yet', isError: true);
+  }
+
+  void _showSnackBar(String message, {bool isError = false}) {
+    Get.snackbar(
+      isError ? 'Error' : 'Success',
+      message,
+      snackPosition: SnackPosition.BOTTOM,
+      backgroundColor: isError ? Colors.red : Colors.green,
+      colorText: Colors.white,
+      margin: const EdgeInsets.all(12),
+      borderRadius: 8,
+      duration: const Duration(seconds: 3),
+    );
   }
 }
