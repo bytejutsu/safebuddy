@@ -42,9 +42,15 @@ class _ProfilePageState extends State<ProfilePage> {
 
   User? get _currentUser => _supabase.auth.currentUser;
 
+  bool get _hasValidPhone => _phoneCtrl.text.trim().isNotEmpty;
+
+  bool get _isProfileComplete =>
+      _name.trim().isNotEmpty && _phone.trim().isNotEmpty;
+
   @override
   void initState() {
     super.initState();
+    _phoneCtrl.addListener(_refreshIndicators);
     _loadProfile();
 
     _authSub = _supabase.auth.onAuthStateChange.listen((data) {
@@ -65,9 +71,20 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   void dispose() {
     _authSub?.cancel();
+    _phoneCtrl.removeListener(_refreshIndicators);
     _phoneCtrl.dispose();
     _emailCtrl.dispose();
     super.dispose();
+  }
+
+  void _refreshIndicators() {
+    if (!mounted) return;
+    setState(() {});
+  }
+
+  bool _isValidEmailFormat(String email) {
+    final regex = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$');
+    return regex.hasMatch(email);
   }
 
   Future<void> _syncAuthEmail() async {
@@ -228,7 +245,7 @@ class _ProfilePageState extends State<ProfilePage> {
     }
 
     final newEmail = _emailCtrl.text.trim();
-    final currentEmail = user.email ?? '';
+    final currentEmail = user.email?.trim() ?? '';
 
     if (newEmail.isEmpty) {
       Get.snackbar(
@@ -241,7 +258,18 @@ class _ProfilePageState extends State<ProfilePage> {
       return;
     }
 
-    if (newEmail == currentEmail) {
+    if (!_isValidEmailFormat(newEmail)) {
+      Get.snackbar(
+        'Invalid email',
+        'Please enter a valid email address.',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: _red,
+        colorText: Colors.white,
+      );
+      return;
+    }
+
+    if (newEmail.toLowerCase() == currentEmail.toLowerCase()) {
       setState(() => _editEmail = false);
       return;
     }
@@ -256,7 +284,6 @@ class _ProfilePageState extends State<ProfilePage> {
       if (!mounted) return;
       setState(() {
         _editEmail = false;
-        _emailCtrl.text = currentEmail;
       });
 
       Get.snackbar(
@@ -268,14 +295,35 @@ class _ProfilePageState extends State<ProfilePage> {
         duration: const Duration(seconds: 4),
       );
     } on AuthException catch (e) {
+      String message = e.message;
+      final lower = e.message.toLowerCase();
+
+      if (lower.contains('invalid') && lower.contains('email')) {
+        message =
+        'Supabase rejected the email change request. Check the Auth email change settings and make sure the account email in Supabase Auth is valid.';
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _emailCtrl.text = currentEmail;
+        _editEmail = false;
+      });
+
       Get.snackbar(
         'Error',
-        e.message,
+        message,
         snackPosition: SnackPosition.BOTTOM,
         backgroundColor: _red,
         colorText: Colors.white,
+        duration: const Duration(seconds: 5),
       );
     } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _emailCtrl.text = currentEmail;
+        _editEmail = false;
+      });
+
       Get.snackbar(
         'Error',
         'Could not update your email.',
@@ -700,7 +748,7 @@ class _ProfilePageState extends State<ProfilePage> {
             width: 24,
             height: 24,
             decoration: BoxDecoration(
-              color: _name.isNotEmpty ? _green : Colors.grey,
+              color: _hasValidPhone ? _green : Colors.grey,
               shape: BoxShape.circle,
               border: Border.all(color: Colors.white, width: 2),
             ),
@@ -890,7 +938,7 @@ class _ProfilePageState extends State<ProfilePage> {
                             ],
                           ),
                         ),
-                        if (_name.isNotEmpty)
+                        if (_isProfileComplete)
                           Padding(
                             padding: const EdgeInsets.only(top: 4),
                             child: Container(
@@ -908,7 +956,7 @@ class _ProfilePageState extends State<ProfilePage> {
                                   Icon(Icons.verified, size: 14, color: _green),
                                   const SizedBox(width: 4),
                                   Text(
-                                    'Profile saved',
+                                    'Profile complete',
                                     style: TextStyle(
                                       fontSize: 12,
                                       color: _green,
