@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../controllers/contacts_controller.dart';
-
+import 'chat.dart';
 class ContactsPage extends StatelessWidget {
   const ContactsPage({super.key});
 
@@ -303,8 +303,7 @@ class ContactsPage extends StatelessWidget {
           const SizedBox(width: 6),
           // ── SMS button ─────────────────────────────────────────────────
           GestureDetector(
-            onTap: () => _launchSms(contact.phone),
-            child: Container(
+            onTap: () => showMessageSheet(context, contact, ctrl),            child: Container(
               width: 30,
               height: 30,
               decoration: BoxDecoration(
@@ -318,22 +317,7 @@ class ContactsPage extends StatelessWidget {
           const SizedBox(width: 6),
           // ── Location toggle ────────────────────────────────────────────
           GestureDetector(
-            onTap: () {
-              ctrl.toggleSharing(contact);
-              Get.snackbar(
-                contact.isSharing ? '📍 Sharing On' : '🔕 Sharing Off',
-                contact.isSharing
-                    ? 'Your location is now shared with ${contact.name}'
-                    : 'Location sharing stopped for ${contact.name}',
-                snackPosition: SnackPosition.BOTTOM,
-                backgroundColor: contact.isSharing
-                    ? Colors.green[600]
-                    : Colors.grey[700],
-                colorText: Colors.white,
-                borderRadius: 12,
-                margin: const EdgeInsets.all(16),
-              );
-            },
+            onTap: () => ctrl.toggleSharing(contact),
             child: Obx(() => AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
                   width: 30,
@@ -627,7 +611,7 @@ class _AddContactSheetState extends State<_AddContactSheet> {
                 const SizedBox(height: 8),
                 _buildField(
                   controller: _phoneCtrl,
-                  hint: 'e.g. +216 xx xxx xxx',
+                  hint: 'e.g. xx xxx xxx',
                   icon: Icons.phone_outlined,
                   keyboard: TextInputType.phone,
                   validator: (v) => v == null || v.trim().isEmpty

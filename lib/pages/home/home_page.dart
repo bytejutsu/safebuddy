@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
@@ -11,36 +10,26 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   final RxBool isLocationSharingEnabled = true.obs;
-  final RxBool isPeriodicalChecksEnabled = true.obs;
-  final RxBool isAIProtectionEnabled = true.obs;
+  final RxBool isPeriodicalChecksEnabled = true.obs; // starts ON
+  final RxBool isAIProtectionEnabled = true.obs;     // starts ON
   final RxDouble periodicalCheckInterval = 0.3.obs;
+
+  // Remember sub-toggle states before main toggle turns off
+  bool _prevPeriodical = true;
+  bool _prevAI = true;
 
   // This page is the Home tab — index 0
   final RxInt selectedIndex = 0.obs;
 
-  late String _currentTime;
-  late Timer _timer;
-
   static const _blue = Color(0xFF2196F3);
-
-  String _formatTime(DateTime dt) {
-    final h = dt.hour.toString().padLeft(2, '0');
-    final m = dt.minute.toString().padLeft(2, '0');
-    return '$h:$m';
-  }
 
   @override
   void initState() {
     super.initState();
-    _currentTime = _formatTime(DateTime.now());
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) setState(() => _currentTime = _formatTime(DateTime.now()));
-    });
   }
 
   @override
   void dispose() {
-    _timer.cancel();
     super.dispose();
   }
 
@@ -73,10 +62,7 @@ class _HomePageState extends State<HomePage> {
         backgroundColor: Colors.white,
         elevation: 0,
         automaticallyImplyLeading: false,
-        title: Text(
-          _currentTime,
-          style: const TextStyle(color: Colors.black, fontSize: 16),
-        ),
+        title: null,
         centerTitle: false,
         actions: [
           Padding(
@@ -102,11 +88,18 @@ class _HomePageState extends State<HomePage> {
             Obx(() => _BigCircleToggle(
                   value: isLocationSharingEnabled.value,
                   onChanged: (v) {
-                    isLocationSharingEnabled.value = v;
                     if (!v) {
+                      // Save state before turning off
+                      _prevPeriodical = isPeriodicalChecksEnabled.value;
+                      _prevAI = isAIProtectionEnabled.value;
                       isPeriodicalChecksEnabled.value = false;
                       isAIProtectionEnabled.value = false;
+                    } else {
+                      // Restore previous state when turning back on
+                      isPeriodicalChecksEnabled.value = _prevPeriodical;
+                      isAIProtectionEnabled.value = _prevAI;
                     }
+                    isLocationSharingEnabled.value = v;
                   },
                 )),
             const SizedBox(height: 24),
@@ -283,7 +276,9 @@ class _BigCircleToggle extends StatelessWidget {
           boxShadow: [
             BoxShadow(color: ring, spreadRadius: 6, blurRadius: 0),
             BoxShadow(
-                color: ring.withValues(alpha: 0.3), blurRadius: 20, spreadRadius: 4),
+                color: ring.withValues(alpha: 0.3),
+                blurRadius: 20,
+                spreadRadius: 4),
           ],
         ),
         child: Center(
@@ -314,7 +309,7 @@ class _PillToggle extends StatelessWidget {
   final ValueChanged<bool>? onChanged;
 
   static const _onGreen = Color(0xFF4CD964);
-  static const _offGrey = Color(0xFFD1D1D6);
+  static const _offGrey = Color(0xFFAAAAAA); // darker so OFF text is readable
   static const _disabledGrey = Color(0xFFE5E5EA);
   static const _pillWidth = 72.0;
   static const _pillHeight = 34.0;
@@ -344,6 +339,19 @@ class _PillToggle extends StatelessWidget {
                 child: Padding(
                   padding: EdgeInsets.only(left: 10),
                   child: Text('ON',
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.5)),
+                ),
+              ),
+            if (!isOn && isEnabled)
+              const Align(
+                alignment: Alignment.centerRight,
+                child: Padding(
+                  padding: EdgeInsets.only(right: 8),
+                  child: Text('OFF',
                       style: TextStyle(
                           color: Colors.white,
                           fontSize: 11,

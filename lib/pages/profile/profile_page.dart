@@ -634,7 +634,7 @@ class _ProfilePageState extends State<ProfilePage> {
                       Icons.phone_outlined,
                       'Phone',
                       _phoneCtrl,
-                      '(480) 555-0103',
+                      'xx xxx xxx',
                       _editPhone,
                       TextInputType.phone,
                           () => setState(() => _editPhone = true),
