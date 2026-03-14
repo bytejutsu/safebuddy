@@ -40,12 +40,14 @@ class _ProfilePageState extends State<ProfilePage> {
   bool _isLoaded = false;
   bool _isSaving = false;
 
+  bool _phoneVerified = false;
+
   User? get _currentUser => _supabase.auth.currentUser;
 
   bool get _hasValidPhone => _phoneCtrl.text.trim().isNotEmpty;
 
   bool get _isProfileComplete =>
-      _name.trim().isNotEmpty && _phone.trim().isNotEmpty;
+      _name.trim().isNotEmpty && _phoneVerified;
 
   @override
   void initState() {
@@ -107,7 +109,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
       final List<dynamic> rows = await _supabase
           .from('profiles')
-          .select('full_name, phone, avatar_url')
+          .select('full_name, phone, avatar_url, phone_verified')
           .eq('id', user.id)
           .limit(1);
 
@@ -117,7 +119,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
       final List<dynamic> refreshedRows = await _supabase
           .from('profiles')
-          .select('full_name, phone, avatar_url')
+          .select('full_name, phone, avatar_url, phone_verified')
           .eq('id', user.id)
           .limit(1);
 
@@ -131,6 +133,7 @@ class _ProfilePageState extends State<ProfilePage> {
         _name = (profile?['full_name'] as String?) ?? '';
         _phone = (profile?['phone'] as String?) ?? '';
         _avatarUrl = (profile?['avatar_url'] as String?) ?? '';
+        _phoneVerified = (profile?['phone_verified'] as bool?) ?? false;
         _email = user.email ?? '';
 
         _phoneCtrl.text = _phone;
@@ -203,15 +206,20 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Future<void> _savePhone() async {
     final trimmed = _phoneCtrl.text.trim();
+    final bool verified = trimmed.isNotEmpty;
 
     try {
       setState(() => _isSaving = true);
 
-      await _updateProfile({'phone': trimmed});
+      await _updateProfile({
+        'phone': trimmed,
+        'phone_verified': verified,
+      });
 
       if (!mounted) return;
       setState(() {
         _phone = trimmed;
+        _phoneVerified = verified;
         _editPhone = false;
       });
 
@@ -748,7 +756,7 @@ class _ProfilePageState extends State<ProfilePage> {
             width: 24,
             height: 24,
             decoration: BoxDecoration(
-              color: _hasValidPhone ? _green : Colors.grey,
+              color: _phoneVerified ? _green : Colors.grey,
               shape: BoxShape.circle,
               border: Border.all(color: Colors.white, width: 2),
             ),
