@@ -145,10 +145,7 @@ class _ProfilePageState extends State<ProfilePage> {
       return;
     }
 
-    await _supabase
-        .from('profiles')
-        .update(values)
-        .eq('id', user.id);
+    await _supabase.from('profiles').update(values).eq('id', user.id);
   }
 
   Future<void> _saveName(String value) async {
@@ -631,7 +628,8 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   String _initials(String n) {
-    final parts = n.trim().split(RegExp(r'\s+')).where((e) => e.isNotEmpty).toList();
+    final parts =
+    n.trim().split(RegExp(r'\s+')).where((e) => e.isNotEmpty).toList();
     if (parts.length >= 2) {
       return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
     }
@@ -860,206 +858,206 @@ class _ProfilePageState extends State<ProfilePage> {
         ],
       ),
       body: SafeArea(
-        bottom: false,
         child: Stack(
           children: [
-            ListView(
-              padding: EdgeInsets.fromLTRB(
-                20,
-                16,
-                20,
-                kBottomNavigationBarHeight +
-                    MediaQuery.of(context).padding.bottom +
-                    24,
-              ),
-              children: [
-                Center(
-                  child: Column(
-                    children: [
-                      _buildAvatar(),
-                      const SizedBox(height: 12),
-                      GestureDetector(
-                        onTap: _editName,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              _name.isEmpty ? 'Tap to set your name' : _name,
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                color: _name.isEmpty
-                                    ? Colors.grey[400]
-                                    : Colors.black87,
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            const Icon(Icons.edit, size: 16, color: Colors.grey),
-                          ],
-                        ),
-                      ),
-                      if (_name.isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 4),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 3,
-                            ),
-                            decoration: BoxDecoration(
-                              color: _green.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.verified, size: 14, color: _green),
-                                const SizedBox(width: 4),
-                                Text(
-                                  'Profile saved',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: _green,
-                                    fontWeight: FontWeight.w500,
-                                  ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Center(
+                    child: Column(
+                      children: [
+                        _buildAvatar(),
+                        const SizedBox(height: 12),
+                        GestureDetector(
+                          onTap: _editName,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                _name.isEmpty ? 'Tap to set your name' : _name,
+                                style: TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                  color: _name.isEmpty
+                                      ? Colors.grey[400]
+                                      : Colors.black87,
                                 ),
-                              ],
-                            ),
+                              ),
+                              const SizedBox(width: 6),
+                              const Icon(Icons.edit, size: 16, color: Colors.grey),
+                            ],
                           ),
                         ),
-                    ],
+                        if (_name.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 3,
+                              ),
+                              decoration: BoxDecoration(
+                                color: _green.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.verified, size: 14, color: _green),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'Profile saved',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: _green,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(height: 24),
-                const Text(
-                  'Contact Info',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: _blue,
+                  const SizedBox(height: 24),
+                  const Text(
+                    'Contact Info',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: _blue,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 10),
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Colors.black12,
-                        blurRadius: 10,
-                        offset: Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    children: [
-                      _buildRow(
-                        Icons.phone_outlined,
-                        'Phone',
-                        _phoneCtrl,
-                        'xx xxx xxx',
-                        _editPhone,
-                        TextInputType.phone,
-                            () => setState(() => _editPhone = true),
-                            () {
-                          _savePhone();
-                        },
-                      ),
-                      Divider(
-                        height: 1,
-                        indent: 16,
-                        endIndent: 16,
-                        color: Colors.grey[100],
-                      ),
-                      _buildRow(
-                        Icons.email_outlined,
-                        'Email',
-                        _emailCtrl,
-                        'your@email.com',
-                        _editEmail,
-                        TextInputType.emailAddress,
-                            () => setState(() => _editEmail = true),
-                            () {
-                          _saveEmail();
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 24),
-                const Text(
-                  'Sharing History',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: _blue,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 32),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Colors.black12,
-                        blurRadius: 10,
-                        offset: Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    children: [
-                      Icon(Icons.history, size: 40, color: Colors.grey[300]),
-                      const SizedBox(height: 10),
-                      Text(
-                        'No sharing history yet',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[400],
-                          fontWeight: FontWeight.w500,
+                  const SizedBox(height: 10),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Colors.black12,
+                          blurRadius: 10,
+                          offset: Offset(0, 2),
                         ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Will be connected to database soon',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey[400],
+                      ],
+                    ),
+                    child: Column(
+                      children: [
+                        _buildRow(
+                          Icons.phone_outlined,
+                          'Phone',
+                          _phoneCtrl,
+                          'xx xxx xxx',
+                          _editPhone,
+                          TextInputType.phone,
+                              () => setState(() => _editPhone = true),
+                              () {
+                            _savePhone();
+                          },
                         ),
-                      ),
-                    ],
+                        Divider(
+                          height: 1,
+                          indent: 16,
+                          endIndent: 16,
+                          color: Colors.grey[100],
+                        ),
+                        _buildRow(
+                          Icons.email_outlined,
+                          'Email',
+                          _emailCtrl,
+                          'your@email.com',
+                          _editEmail,
+                          TextInputType.emailAddress,
+                              () => setState(() => _editEmail = true),
+                              () {
+                            _saveEmail();
+                          },
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(height: 24),
-                SizedBox(
-                  width: double.infinity,
-                  height: 52,
-                  child: ElevatedButton.icon(
-                    onPressed: _signOut,
-                    icon: const Icon(Icons.logout, color: Colors.white, size: 20),
-                    label: const Text(
-                      'Sign out',
-                      style: TextStyle(
+                  const SizedBox(height: 24),
+                  const Text(
+                    'Sharing History',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: _blue,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Expanded(
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 24,
+                      ),
+                      decoration: BoxDecoration(
                         color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Colors.black12,
+                            blurRadius: 10,
+                            offset: Offset(0, 2),
+                          ),
+                        ],
                       ),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _red,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.history, size: 40, color: Colors.grey[300]),
+                          const SizedBox(height: 10),
+                          Text(
+                            'No sharing history yet',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey[400],
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Will be connected to database soon',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[400],
+                            ),
+                          ),
+                        ],
                       ),
-                      elevation: 0,
                     ),
                   ),
-                ),
-                const SizedBox(height: 24),
-              ],
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 52,
+                    child: ElevatedButton.icon(
+                      onPressed: _signOut,
+                      icon: const Icon(Icons.logout, color: Colors.white, size: 20),
+                      label: const Text(
+                        'Sign out',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _red,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        elevation: 0,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
             if (_isSaving)
               Container(
