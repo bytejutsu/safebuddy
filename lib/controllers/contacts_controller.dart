@@ -3,7 +3,64 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-// ── Model ─────────────────────────────────────────────────────────────────────
+// ── Sharing History Model ─────────────────────────────────────────────────────
+class SharingHistoryEntry {
+  final String id;
+  final String contactId;
+  final String contactName;
+  final DateTime startedAt;
+  final DateTime? endedAt;
+  final int? durationSecs;
+
+  SharingHistoryEntry({
+    required this.id,
+    required this.contactId,
+    required this.contactName,
+    required this.startedAt,
+    this.endedAt,
+    this.durationSecs,
+  });
+
+  factory SharingHistoryEntry.fromMap(Map<String, dynamic> m) {
+    return SharingHistoryEntry(
+      id: m['id'] as String,
+      contactId: m['contact_id'] as String,
+      contactName: m['contact_name'] as String,
+      startedAt: DateTime.parse(m['started_at'] as String).toLocal(),
+      endedAt: m['ended_at'] != null
+          ? DateTime.parse(m['ended_at'] as String).toLocal()
+          : null,
+      durationSecs: m['duration_secs'] as int?,
+    );
+  }
+
+  /// e.g. "2 min 34 sec" or "45 sec"
+  String get durationLabel {
+    if (durationSecs == null) return 'Active';
+    if (durationSecs! < 60) return '${durationSecs}s';
+    final m = durationSecs! ~/ 60;
+    final s = durationSecs! % 60;
+    return s == 0 ? '${m}m' : '${m}m ${s}s';
+  }
+
+  /// e.g. "Today 14:32" or "Mar 20 09:15"
+  String get startedLabel {
+    final now = DateTime.now();
+    final dt = startedAt;
+    final isToday =
+        dt.year == now.year && dt.month == now.month && dt.day == now.day;
+    final h = dt.hour.toString().padLeft(2, '0');
+    final min = dt.minute.toString().padLeft(2, '0');
+    if (isToday) return 'Today $h:$min';
+    const months = [
+      '', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    return '${months[dt.month]} ${dt.day}  $h:$min';
+  }
+}
+
+// ── Contact Model ─────────────────────────────────────────────────────────────
 class TrustedContactModel {
   final String id;
   final String name;
@@ -61,7 +118,9 @@ class ContactsController extends GetxController {
   final _db = Supabase.instance.client;
 
   final RxList<TrustedContactModel> contacts = <TrustedContactModel>[].obs;
+  final RxList<SharingHistoryEntry> history = <SharingHistoryEntry>[].obs;
   final RxBool isLoading = false.obs;
+  final RxBool isHistoryLoading = false.obs;
 
   String? get _uid => _db.auth.currentUser?.id;
 
@@ -72,10 +131,14 @@ class ContactsController extends GetxController {
       switch (data.event) {
         case AuthChangeEvent.signedIn:
         case AuthChangeEvent.initialSession:
-          if (data.session != null) fetchContacts();
+          if (data.session != null) {
+            fetchContacts();
+            fetchHistory();
+          }
           break;
         case AuthChangeEvent.signedOut:
           contacts.clear();
+          history.clear();
           break;
         default:
           break;
@@ -83,7 +146,7 @@ class ContactsController extends GetxController {
     });
   }
 
-  // ── READ ──────────────────────────────────────────────────────────────────
+  // ── CONTACTS ──────────────────────────────────────────────────────────────
 
   Future<void> fetchContacts() async {
     if (_uid == null) return;
@@ -103,8 +166,6 @@ class ContactsController extends GetxController {
     }
   }
 
-  // ── CREATE ────────────────────────────────────────────────────────────────
-
   Future<void> addContact(TrustedContactModel contact) async {
     if (_uid == null) {
       Get.snackbar('❌ Not signed in', 'Please sign in first.',
@@ -119,8 +180,6 @@ class ContactsController extends GetxController {
     }
   }
 
-  // ── DELETE ────────────────────────────────────────────────────────────────
-
   Future<void> removeContact(TrustedContactModel contact) async {
     try {
       await _db.from('trusted_contacts').delete().eq('id', contact.id);
@@ -130,19 +189,56 @@ class ContactsController extends GetxController {
     }
   }
 
-  // ── UPDATE (sharing toggle) ───────────────────────────────────────────────
-  // Snackbar lives HERE so it always uses the correct newValue — not in the UI.
+  // ── TOGGLE SHARING (writes history) ──────────────────────────────────────
 
   Future<void> toggleSharing(TrustedContactModel contact) async {
-    final newValue = !contact.isSharing; // capture BEFORE any await
+    if (_uid == null) return;
+    final newValue = !contact.isSharing;
     try {
+      // 1. Update trusted_contacts row
       await _db
           .from('trusted_contacts')
           .update({'is_sharing': newValue})
           .eq('id', contact.id);
       contact.isSharing = newValue;
       contacts.refresh();
-      // Show feedback only after Supabase confirms the update
+
+      if (newValue) {
+        // 2a. Sharing started → insert a new history row
+        await _db.from('sharing_history').insert({
+          'user_id': _uid!,
+          'contact_id': contact.id,
+          'contact_name': contact.name,
+          'started_at': DateTime.now().toUtc().toIso8601String(),
+        });
+      } else {
+        // 2b. Sharing stopped → close the open row (no ended_at yet)
+        final openRows = await _db
+            .from('sharing_history')
+            .select('id, started_at')
+            .eq('user_id', _uid!)
+            .eq('contact_id', contact.id)
+            .filter('ended_at', 'is', 'null')
+            .order('started_at', ascending: false)
+            .limit(1);
+
+        if ((openRows as List).isNotEmpty) {
+          final row = openRows.first as Map<String, dynamic>;
+          final started = DateTime.parse(row['started_at'] as String);
+          final ended = DateTime.now().toUtc();
+          final secs = ended.difference(started).inSeconds;
+
+          await _db.from('sharing_history').update({
+            'ended_at': ended.toIso8601String(),
+            'duration_secs': secs,
+          }).eq('id', row['id'] as String);
+        }
+      }
+
+      // 3. Refresh history list
+      await fetchHistory();
+
+      // 4. Snackbar
       Get.snackbar(
         newValue ? '📍 Sharing On' : '🔕 Sharing Off',
         newValue
@@ -156,6 +252,28 @@ class ContactsController extends GetxController {
       );
     } catch (e) {
       _snackError('Failed to update sharing', e);
+    }
+  }
+
+  // ── HISTORY ───────────────────────────────────────────────────────────────
+
+  Future<void> fetchHistory() async {
+    if (_uid == null) return;
+    try {
+      isHistoryLoading.value = true;
+      final rows = await _db
+          .from('sharing_history')
+          .select()
+          .eq('user_id', _uid!)
+          .order('started_at', ascending: false)
+          .limit(50);
+      history.value = (rows as List)
+          .map((r) => SharingHistoryEntry.fromMap(r))
+          .toList();
+    } catch (e) {
+      _snackError('Failed to load history', e);
+    } finally {
+      isHistoryLoading.value = false;
     }
   }
 

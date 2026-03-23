@@ -9,6 +9,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:get/get.dart';
+import 'nima_chat_page.dart';
 
 // ── Address model from Nominatim ──────────────────────────────────────────────
 class _PlaceInfo {
@@ -77,11 +78,11 @@ class _GlobePageState extends State<GlobePage>
   String _locationStatus = '';
   bool _isLoadingLocation = false;
 
-  // This page is the Safety tab — index 1
   final RxInt selectedIndex = 1.obs;
 
   static const _blue = Color(0xFF2196F3);
   static const _teal = Color(0xFF4FC3F7);
+  static const _indigo = Color(0xFF6360B7);
 
   @override
   void initState() {
@@ -102,20 +103,11 @@ class _GlobePageState extends State<GlobePage>
     if (index == selectedIndex.value) return;
     selectedIndex.value = index;
     switch (index) {
-      case 0:
-        Get.offAllNamed('/home');
-        break;
-      case 1:
-        break; // already here
-      case 2:
-        Get.offAllNamed('/settings');
-        break;
-      case 3:
-        Get.offAllNamed('/profile');
-        break;
-      case 4:
-        Get.offAllNamed('/contacts');
-        break;
+      case 0: Get.offAllNamed('/home'); break;
+      case 1: break;
+      case 2: Get.offAllNamed('/settings'); break;
+      case 3: Get.offAllNamed('/profile'); break;
+      case 4: Get.offAllNamed('/contacts'); break;
     }
   }
 
@@ -156,9 +148,7 @@ class _GlobePageState extends State<GlobePage>
       }
       if (permission == LocationPermission.deniedForever) {
         if (!kIsWeb) _showPermissionDialog();
-        else {
-          setState(() => _locationStatus = 'Please allow location in your browser.');
-        }
+        else setState(() => _locationStatus = 'Please allow location in your browser.');
         setState(() => _isLoadingLocation = false);
         return;
       }
@@ -168,14 +158,12 @@ class _GlobePageState extends State<GlobePage>
         timeLimit: const Duration(seconds: 15),
       );
 
-      final place =
-          await _reverseGeocode(position.latitude, position.longitude);
+      final place = await _reverseGeocode(position.latitude, position.longitude);
       setState(() => _isLoadingLocation = false);
       _showPositionSheet(position, place);
     } catch (e) {
       setState(() {
-        _locationStatus =
-            'Could not get location.\nPlease allow location access.';
+        _locationStatus = 'Could not get location.\nPlease allow location access.';
         _isLoadingLocation = false;
       });
     }
@@ -188,18 +176,13 @@ class _GlobePageState extends State<GlobePage>
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Permission Required',
             style: TextStyle(fontWeight: FontWeight.bold, color: _blue)),
-        content:
-            const Text('Please enable location permission in app settings.'),
+        content: const Text('Please enable location permission in app settings.'),
         actions: [
           TextButton(onPressed: () => Get.back(), child: const Text('Cancel')),
           ElevatedButton(
-            onPressed: () async {
-              Get.back();
-              await Geolocator.openAppSettings();
-            },
+            onPressed: () async { Get.back(); await Geolocator.openAppSettings(); },
             style: ElevatedButton.styleFrom(backgroundColor: _blue),
-            child: const Text('Open Settings',
-                style: TextStyle(color: Colors.white)),
+            child: const Text('Open Settings', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -208,49 +191,34 @@ class _GlobePageState extends State<GlobePage>
   }
 
   Future<void> _openGoogleMaps(double lat, double lng) async {
-    final uri =
-        Uri.parse('https://www.google.com/maps/search/?api=1&query=$lat,$lng');
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
+    final uri = Uri.parse('https://www.google.com/maps/search/?api=1&query=$lat,$lng');
+    if (await canLaunchUrl(uri)) await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
   Future<void> _openStreetView(double lat, double lng) async {
-    final uri = Uri.parse(
-        'https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=$lat,$lng');
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
+    final uri = Uri.parse('https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=$lat,$lng');
+    if (await canLaunchUrl(uri)) await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
-  Future<void> _shareLocation(
-      double lat, double lng, _PlaceInfo? place) async {
-    final mapsLink =
-        'https://www.google.com/maps/search/?api=1&query=$lat,$lng';
-    final placeName =
-        place?.shortName.isNotEmpty == true ? place!.shortName : '';
+  Future<void> _shareLocation(double lat, double lng, _PlaceInfo? place) async {
+    final mapsLink = 'https://www.google.com/maps/search/?api=1&query=$lat,$lng';
+    final placeName = place?.shortName.isNotEmpty == true ? place!.shortName : '';
     final shareText = placeName.isNotEmpty
         ? '📍 My current location: $placeName\n$mapsLink'
         : '📍 My current location:\n$mapsLink';
 
-    final whatsappUri =
-        Uri.parse('whatsapp://send?text=${Uri.encodeComponent(shareText)}');
-
+    final whatsappUri = Uri.parse('whatsapp://send?text=${Uri.encodeComponent(shareText)}');
     if (await canLaunchUrl(whatsappUri)) {
       await launchUrl(whatsappUri, mode: LaunchMode.externalApplication);
     } else {
       await Clipboard.setData(ClipboardData(text: shareText));
       Get.back();
-      Get.snackbar(
-        '✅ Copied!',
-        'Location link copied to clipboard — paste it anywhere to share.',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: _blue,
-        colorText: Colors.white,
-        borderRadius: 12,
-        margin: const EdgeInsets.all(16),
-        duration: const Duration(seconds: 3),
-      );
+      Get.snackbar('✅ Copied!',
+          'Location link copied to clipboard — paste it anywhere to share.',
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: _blue, colorText: Colors.white,
+          borderRadius: 12, margin: const EdgeInsets.all(16),
+          duration: const Duration(seconds: 3));
     }
   }
 
@@ -259,7 +227,6 @@ class _GlobePageState extends State<GlobePage>
         '${position.latitude.abs().toStringAsFixed(5)}° ${position.latitude >= 0 ? 'N' : 'S'}';
     final lngStr =
         '${position.longitude.abs().toStringAsFixed(5)}° ${position.longitude >= 0 ? 'E' : 'W'}';
-
     final accuracyText = position.accuracy < 20
         ? '✓ Excellent (${position.accuracy.toStringAsFixed(0)} m)'
         : position.accuracy < 50
@@ -275,57 +242,35 @@ class _GlobePageState extends State<GlobePage>
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(24),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.12),
-              blurRadius: 24,
-              offset: const Offset(0, -4),
-            ),
-          ],
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.12),
+              blurRadius: 24, offset: const Offset(0, -4))],
         ),
         padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
+            Container(width: 40, height: 4,
+                decoration: BoxDecoration(color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(2))),
             const SizedBox(height: 20),
             Row(
               children: [
-                Container(
-                  width: 52,
-                  height: 52,
-                  decoration: BoxDecoration(
-                    color: _blue.withOpacity(0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.location_on, color: _blue, size: 30),
-                ),
+                Container(width: 52, height: 52,
+                    decoration: BoxDecoration(
+                        color: _blue.withOpacity(0.1), shape: BoxShape.circle),
+                    child: const Icon(Icons.location_on, color: _blue, size: 30)),
                 const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('Your Location',
-                          style: TextStyle(
-                              fontSize: 18, fontWeight: FontWeight.bold)),
-                      if (place != null && place.shortName.isNotEmpty)
-                        Text(
-                          place.shortName,
-                          style:
-                              TextStyle(fontSize: 13, color: Colors.grey[600]),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                    ],
-                  ),
-                ),
+                Expanded(child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Your Location',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    if (place != null && place.shortName.isNotEmpty)
+                      Text(place.shortName,
+                          style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                          maxLines: 2, overflow: TextOverflow.ellipsis),
+                  ],
+                )),
               ],
             ),
             const SizedBox(height: 16),
@@ -335,23 +280,16 @@ class _GlobePageState extends State<GlobePage>
               if (place.road.isNotEmpty)
                 _detailRow(Icons.signpost_outlined, 'Street', place.road),
               if (place.neighbourhood.isNotEmpty || place.suburb.isNotEmpty)
-                _detailRow(
-                    Icons.holiday_village_outlined,
-                    'District',
-                    place.neighbourhood.isNotEmpty
-                        ? place.neighbourhood
-                        : place.suburb),
+                _detailRow(Icons.holiday_village_outlined, 'District',
+                    place.neighbourhood.isNotEmpty ? place.neighbourhood : place.suburb),
               if (place.city.isNotEmpty)
                 _detailRow(Icons.location_city_outlined, 'City', place.city),
               if (place.state.isNotEmpty)
                 _detailRow(Icons.map_outlined, 'State / Region', place.state),
-              _detailRow(
-                  Icons.flag_outlined,
-                  'Country',
+              _detailRow(Icons.flag_outlined, 'Country',
                   '${place.countryCode.isNotEmpty ? _flagEmoji(place.countryCode) + ' ' : ''}${place.country}'),
               if (place.postcode.isNotEmpty)
-                _detailRow(Icons.markunread_mailbox_outlined, 'Postcode',
-                    place.postcode),
+                _detailRow(Icons.markunread_mailbox_outlined, 'Postcode', place.postcode),
             ] else ...[
               _detailRow(Icons.my_location, 'Latitude', latStr),
               _detailRow(Icons.explore_outlined, 'Longitude', lngStr),
@@ -362,120 +300,63 @@ class _GlobePageState extends State<GlobePage>
             const SizedBox(height: 8),
             Container(
               width: double.infinity,
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              decoration: BoxDecoration(
-                color: Colors.grey[50],
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey[200]!),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.pin_drop_outlined,
-                      size: 16, color: Colors.grey[500]),
-                  const SizedBox(width: 8),
-                  Text(
-                    '$latStr  ·  $lngStr',
-                    style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey[600],
-                        fontFamily: 'monospace'),
-                  ),
-                ],
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              decoration: BoxDecoration(color: Colors.grey[50],
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey[200]!)),
+              child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                Icon(Icons.pin_drop_outlined, size: 16, color: Colors.grey[500]),
+                const SizedBox(width: 8),
+                Text('$latStr  ·  $lngStr',
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600],
+                        fontFamily: 'monospace')),
+              ]),
             ),
             const SizedBox(height: 20),
-            Row(
-              children: [
-                Expanded(
-                  flex: 3,
-                  child: SizedBox(
-                    height: 50,
-                    child: ElevatedButton.icon(
-                      onPressed: () => _openGoogleMaps(
-                          position.latitude, position.longitude),
-                      icon: const Icon(Icons.map, color: Colors.white, size: 20),
-                      label: const Text('Google Maps',
-                          style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600)),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _blue,
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14)),
-                        elevation: 0,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  flex: 2,
-                  child: SizedBox(
-                    height: 50,
-                    child: ElevatedButton.icon(
-                      onPressed: () => _openStreetView(
-                          position.latitude, position.longitude),
-                      icon: const Icon(Icons.streetview,
-                          color: Colors.white, size: 20),
-                      label: const Text('Street',
-                          style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600)),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _blue,
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14)),
-                        elevation: 0,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
+            Row(children: [
+              Expanded(flex: 3, child: SizedBox(height: 50,
+                child: ElevatedButton.icon(
+                  onPressed: () => _openGoogleMaps(position.latitude, position.longitude),
+                  icon: const Icon(Icons.map, color: Colors.white, size: 20),
+                  label: const Text('Google Maps',
+                      style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+                  style: ElevatedButton.styleFrom(backgroundColor: _blue,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      elevation: 0),
+                ))),
+              const SizedBox(width: 10),
+              Expanded(flex: 2, child: SizedBox(height: 50,
+                child: ElevatedButton.icon(
+                  onPressed: () => _openStreetView(position.latitude, position.longitude),
+                  icon: const Icon(Icons.streetview, color: Colors.white, size: 20),
+                  label: const Text('Street',
+                      style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+                  style: ElevatedButton.styleFrom(backgroundColor: _blue,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      elevation: 0),
+                ))),
+            ]),
             const SizedBox(height: 10),
-            SizedBox(
-              width: double.infinity,
-              height: 50,
+            SizedBox(width: double.infinity, height: 50,
               child: ElevatedButton.icon(
-                onPressed: () => _shareLocation(
-                    position.latitude, position.longitude, place),
-                icon:
-                    const Icon(Icons.share, color: Colors.white, size: 20),
+                onPressed: () => _shareLocation(position.latitude, position.longitude, place),
+                icon: const Icon(Icons.share, color: Colors.white, size: 20),
                 label: const Text('Share Your Location',
-                    style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF6360B7),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14)),
-                  elevation: 0,
-                ),
-              ),
-            ),
+                    style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600)),
+                style: ElevatedButton.styleFrom(backgroundColor: _indigo,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    elevation: 0),
+              )),
             const SizedBox(height: 10),
-            SizedBox(
-              width: double.infinity,
-              height: 50,
+            SizedBox(width: double.infinity, height: 50,
               child: OutlinedButton(
                 onPressed: () => Get.back(),
                 style: OutlinedButton.styleFrom(
-                  side: BorderSide(color: Colors.grey[300]!),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14)),
-                ),
+                    side: BorderSide(color: Colors.grey[300]!),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
                 child: const Text('Close',
-                    style: TextStyle(
-                        color: Colors.black87,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500)),
-              ),
-            ),
+                    style: TextStyle(color: Colors.black87, fontSize: 16, fontWeight: FontWeight.w500)),
+              )),
           ],
         ),
       ),
@@ -492,26 +373,14 @@ class _GlobePageState extends State<GlobePage>
   Widget _detailRow(IconData icon, String label, String value) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, size: 18, color: _blue),
-          const SizedBox(width: 12),
-          SizedBox(
-            width: 90,
-            child: Text(label,
-                style: TextStyle(
-                    fontSize: 13,
-                    color: Colors.grey[500],
-                    fontWeight: FontWeight.w500)),
-          ),
-          Expanded(
-            child: Text(value,
-                style: const TextStyle(
-                    fontSize: 13, fontWeight: FontWeight.w600)),
-          ),
-        ],
-      ),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Icon(icon, size: 18, color: _blue),
+        const SizedBox(width: 12),
+        SizedBox(width: 90, child: Text(label,
+            style: TextStyle(fontSize: 13, color: Colors.grey[500], fontWeight: FontWeight.w500))),
+        Expanded(child: Text(value,
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
+      ]),
     );
   }
 
@@ -533,17 +402,11 @@ class _GlobePageState extends State<GlobePage>
                       alignment: Alignment.center,
                       children: [
                         Container(
-                          width: 220,
-                          height: 220,
+                          width: 220, height: 220,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: _teal.withOpacity(0.2),
-                                blurRadius: 56,
-                                spreadRadius: 28,
-                              ),
-                            ],
+                            boxShadow: [BoxShadow(color: _teal.withOpacity(0.2),
+                                blurRadius: 56, spreadRadius: 28)],
                           ),
                         ),
                         AnimatedBuilder(
@@ -551,29 +414,21 @@ class _GlobePageState extends State<GlobePage>
                           builder: (_, __) => CustomPaint(
                             size: const Size(210, 210),
                             painter: _PixelGlobePainter(
-                              rotation: _rotationController.value * 2 * pi,
-                            ),
+                                rotation: _rotationController.value * 2 * pi),
                           ),
                         ),
                         if (_isLoadingLocation)
                           Container(
-                            width: 210,
-                            height: 210,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: Colors.white.withOpacity(0.8),
-                            ),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
+                            width: 210, height: 210,
+                            decoration: BoxDecoration(shape: BoxShape.circle,
+                                color: Colors.white.withOpacity(0.8)),
+                            child: Column(mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 const CircularProgressIndicator(color: _blue),
                                 const SizedBox(height: 12),
                                 Text('Getting location...',
-                                    style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.grey[600])),
-                              ],
-                            ),
+                                    style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                              ]),
                           ),
                       ],
                     ),
@@ -586,74 +441,56 @@ class _GlobePageState extends State<GlobePage>
                           ? _locationStatus
                           : 'The AI is constantly analyzing global\ndata to ensure your safety',
                       textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: _locationStatus.isNotEmpty
-                            ? Colors.redAccent
-                            : Colors.grey[600],
-                        height: 1.5,
-                      ),
+                      style: TextStyle(fontSize: 14,
+                          color: _locationStatus.isNotEmpty ? Colors.redAccent : Colors.grey[600],
+                          height: 1.5),
                     ),
                   ),
                   if (!_isLoadingLocation && _locationStatus.isEmpty) ...[
                     const SizedBox(height: 10),
                     Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: _teal.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.touch_app,
-                              size: 16, color: _teal.withOpacity(0.9)),
-                          const SizedBox(width: 6),
-                          Text(
-                            'Tap the globe to locate yourself',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: _teal.withOpacity(0.9),
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(color: _teal.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(20)),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(Icons.touch_app, size: 16, color: _teal.withOpacity(0.9)),
+                        const SizedBox(width: 6),
+                        Text('Tap the globe to locate yourself',
+                            style: TextStyle(fontSize: 12, color: _teal.withOpacity(0.9),
+                                fontWeight: FontWeight.w500)),
+                      ]),
                     ),
                   ],
                   const Spacer(flex: 3),
                 ],
               ),
             ),
+
+            // ── Nima chat button ─────────────────────────────────────────
             Positioned(
               bottom: 24,
               right: 24,
               child: GestureDetector(
-                onTap: () => Get.snackbar(
-                  'Coming Soon',
-                  'Chatbot will be available soon!',
-                  snackPosition: SnackPosition.BOTTOM,
-                  backgroundColor: _blue,
-                  colorText: Colors.white,
-                  borderRadius: 12,
-                  margin: const EdgeInsets.all(16),
-                ),
+                onTap: () => Get.to(() => const NimaChatPage(),
+                    transition: Transition.downToUp,
+                    duration: const Duration(milliseconds: 350)),
                 child: Container(
-                  width: 58,
-                  height: 58,
+                  width: 58, height: 58,
                   decoration: BoxDecoration(
-                    color: _blue,
+                    gradient: const LinearGradient(
+                      colors: [_indigo, _blue],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
                     shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                          color: _blue.withOpacity(0.45),
-                          blurRadius: 14,
-                          offset: const Offset(0, 5)),
-                    ],
+                    boxShadow: [BoxShadow(color: _indigo.withOpacity(0.45),
+                        blurRadius: 14, offset: const Offset(0, 5))],
                   ),
-                  child: const Icon(Icons.chat_bubble_outline_rounded,
-                      color: Colors.white, size: 26),
+                  child: const Center(
+                    child: Text('N',
+                        style: TextStyle(color: Colors.white,
+                            fontWeight: FontWeight.bold, fontSize: 22)),
+                  ),
                 ),
               ),
             ),
@@ -661,44 +498,29 @@ class _GlobePageState extends State<GlobePage>
         ),
       ),
       bottomNavigationBar: Obx(() => Container(
-            decoration: BoxDecoration(
-              boxShadow: [
-                BoxShadow(
-                    color: _blue.withOpacity(0.3),
-                    blurRadius: 10,
-                    offset: const Offset(0, -2)),
-              ],
-            ),
+            decoration: BoxDecoration(boxShadow: [
+              BoxShadow(color: _blue.withOpacity(0.3), blurRadius: 10,
+                  offset: const Offset(0, -2)),
+            ]),
             child: BottomNavigationBar(
               currentIndex: selectedIndex.value,
               type: BottomNavigationBarType.fixed,
               backgroundColor: _blue,
               selectedItemColor: Colors.white,
               unselectedItemColor: Colors.white.withOpacity(0.6),
-              selectedFontSize: 12,
-              unselectedFontSize: 12,
+              selectedFontSize: 12, unselectedFontSize: 12,
               onTap: _handleNavigation,
               items: const [
-                BottomNavigationBarItem(
-                    icon: Icon(Icons.home_outlined),
-                    activeIcon: Icon(Icons.home),
-                    label: 'Home'),
-                BottomNavigationBarItem(
-                    icon: Icon(Icons.shield_outlined),
-                    activeIcon: Icon(Icons.shield),
-                    label: 'Safety'),
-                BottomNavigationBarItem(
-                    icon: Icon(Icons.settings_outlined),
-                    activeIcon: Icon(Icons.settings),
-                    label: 'Settings'),
-                BottomNavigationBarItem(
-                    icon: Icon(Icons.person_outline),
-                    activeIcon: Icon(Icons.person),
-                    label: 'Profile'),
-                BottomNavigationBarItem(
-                    icon: Icon(Icons.contact_support_outlined),
-                    activeIcon: Icon(Icons.contact_support),
-                    label: 'Contact'),
+                BottomNavigationBarItem(icon: Icon(Icons.home_outlined),
+                    activeIcon: Icon(Icons.home), label: 'Home'),
+                BottomNavigationBarItem(icon: Icon(Icons.shield_outlined),
+                    activeIcon: Icon(Icons.shield), label: 'Safety'),
+                BottomNavigationBarItem(icon: Icon(Icons.settings_outlined),
+                    activeIcon: Icon(Icons.settings), label: 'Settings'),
+                BottomNavigationBarItem(icon: Icon(Icons.person_outline),
+                    activeIcon: Icon(Icons.person), label: 'Profile'),
+                BottomNavigationBarItem(icon: Icon(Icons.contact_support_outlined),
+                    activeIcon: Icon(Icons.contact_support), label: 'Contact'),
               ],
             ),
           )),
@@ -760,8 +582,7 @@ class _PixelGlobePainter extends CustomPainter {
           const Color(0xFF0277BD),
           depth,
         )!.withOpacity(opacity);
-        canvas.drawCircle(
-            Offset(cx + x, cy + y), dotR, Paint()..color = color);
+        canvas.drawCircle(Offset(cx + x, cy + y), dotR, Paint()..color = color);
       }
     }
 
@@ -774,13 +595,8 @@ class _PixelGlobePainter extends CustomPainter {
       final z = r * cos(lat) * cos(lon);
       if (z > 30) {
         final depth = (z + r) / (2 * r);
-        canvas.drawCircle(
-          Offset(cx + x, cy + y),
-          1.0,
-          Paint()
-            ..color =
-                const Color(0xFF80DEEA).withOpacity(0.1 + depth * 0.12),
-        );
+        canvas.drawCircle(Offset(cx + x, cy + y), 1.0,
+            Paint()..color = const Color(0xFF80DEEA).withOpacity(0.1 + depth * 0.12));
       }
     }
   }
