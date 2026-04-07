@@ -1,4 +1,3 @@
-// lib/pages/globe_page.dart
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
@@ -11,7 +10,6 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:get/get.dart';
 import 'nima_chat_page.dart';
 
-// ── Address model from Nominatim ──────────────────────────────────────────────
 class _PlaceInfo {
   final String displayName;
   final String road;
@@ -466,7 +464,6 @@ class _GlobePageState extends State<GlobePage>
               ),
             ),
 
-            // ── Nima chat button ─────────────────────────────────────────
             Positioned(
               bottom: 24,
               right: 24,
@@ -528,7 +525,6 @@ class _GlobePageState extends State<GlobePage>
   }
 }
 
-// ── Pixelated Globe Painter ───────────────────────────────────────────────────
 class _PixelGlobePainter extends CustomPainter {
   final double rotation;
   _PixelGlobePainter({required this.rotation});

@@ -10,15 +10,13 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   final RxBool isLocationSharingEnabled = true.obs;
-  final RxBool isPeriodicalChecksEnabled = true.obs; // starts ON
-  final RxBool isAIProtectionEnabled = true.obs;     // starts ON
+  final RxBool isPeriodicalChecksEnabled = true.obs; 
+  final RxBool isAIProtectionEnabled = true.obs;    
   final RxDouble periodicalCheckInterval = 0.3.obs;
 
-  // Remember sub-toggle states before main toggle turns off
   bool _prevPeriodical = true;
   bool _prevAI = true;
 
-  // This page is the Home tab — index 0
   final RxInt selectedIndex = 0.obs;
 
   static const _blue = Color(0xFF2196F3);
@@ -38,7 +36,7 @@ class _HomePageState extends State<HomePage> {
     selectedIndex.value = index;
     switch (index) {
       case 0:
-        break; // already here
+        break; 
       case 1:
         Get.offAllNamed('/safety');
         break;
@@ -89,13 +87,11 @@ class _HomePageState extends State<HomePage> {
                   value: isLocationSharingEnabled.value,
                   onChanged: (v) {
                     if (!v) {
-                      // Save state before turning off
                       _prevPeriodical = isPeriodicalChecksEnabled.value;
                       _prevAI = isAIProtectionEnabled.value;
                       isPeriodicalChecksEnabled.value = false;
                       isAIProtectionEnabled.value = false;
                     } else {
-                      // Restore previous state when turning back on
                       isPeriodicalChecksEnabled.value = _prevPeriodical;
                       isAIProtectionEnabled.value = _prevAI;
                     }
@@ -245,7 +241,6 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
-// ── Big Circle Toggle ─────────────────────────────────────────────────────────
 class _BigCircleToggle extends StatelessWidget {
   const _BigCircleToggle({required this.value, required this.onChanged});
 
@@ -301,7 +296,6 @@ class _BigCircleToggle extends StatelessWidget {
   }
 }
 
-// ── Pill Toggle ───────────────────────────────────────────────────────────────
 class _PillToggle extends StatelessWidget {
   const _PillToggle({required this.value, required this.onChanged});
 
@@ -309,7 +303,7 @@ class _PillToggle extends StatelessWidget {
   final ValueChanged<bool>? onChanged;
 
   static const _onGreen = Color(0xFF4CD964);
-  static const _offGrey = Color(0xFFAAAAAA); // darker so OFF text is readable
+  static const _offGrey = Color(0xFFAAAAAA); 
   static const _disabledGrey = Color(0xFFE5E5EA);
   static const _pillWidth = 72.0;
   static const _pillHeight = 34.0;

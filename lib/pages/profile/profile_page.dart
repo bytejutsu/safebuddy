@@ -1,4 +1,3 @@
-// lib/pages/profile/profile_page.dart
 import 'dart:async';
 import 'dart:io';
 
@@ -132,7 +131,7 @@ class _ProfilePageState extends State<ProfilePage> {
         _isLoaded = true;
       });
 
-      // Fetch history once profile is loaded
+    
       ContactsController.to.fetchHistory();
     } catch (e) {
       if (!mounted) return;
@@ -547,14 +546,13 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  // ── History tile ──────────────────────────────────────────────────────────
   Widget _buildHistoryTile(SharingHistoryEntry entry) {
     final isActive = entry.endedAt == null;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       child: Row(
         children: [
-          // Icon
+        
           Container(
             width: 40, height: 40,
             decoration: BoxDecoration(
@@ -570,7 +568,7 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
           ),
           const SizedBox(width: 12),
-          // Text
+          
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -603,7 +601,6 @@ class _ProfilePageState extends State<ProfilePage> {
               ],
             ),
           ),
-          // Duration
           Text(entry.durationLabel,
               style: TextStyle(
                   fontSize: 12,
@@ -647,7 +644,6 @@ class _ProfilePageState extends State<ProfilePage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // ── Avatar + name ────────────────────────────────────────
                   Center(
                     child: Column(
                       children: [
@@ -699,7 +695,6 @@ class _ProfilePageState extends State<ProfilePage> {
                   ),
                   const SizedBox(height: 24),
 
-                  // ── Contact info ─────────────────────────────────────────
                   const Text('Contact Info',
                       style: TextStyle(fontSize: 16,
                           fontWeight: FontWeight.bold, color: _blue)),
@@ -729,7 +724,6 @@ class _ProfilePageState extends State<ProfilePage> {
                   ),
                   const SizedBox(height: 24),
 
-                  // ── Sharing History ──────────────────────────────────────
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -795,7 +789,6 @@ class _ProfilePageState extends State<ProfilePage> {
                   ),
                   const SizedBox(height: 24),
 
-                  // ── Sign out ─────────────────────────────────────────────
                   SizedBox(
                     width: double.infinity, height: 52,
                     child: ElevatedButton.icon(

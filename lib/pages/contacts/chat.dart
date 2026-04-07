@@ -1,11 +1,9 @@
-// lib/pages/contacts/chat.dart
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../controllers/contacts_controller.dart';
 
-// ── Public helper ─────────────────────────────────────────────────────────────
 void showMessageSheet(
   BuildContext context,
   TrustedContactModel contact,
@@ -19,7 +17,6 @@ void showMessageSheet(
   );
 }
 
-// ── Sheet widget ──────────────────────────────────────────────────────────────
 class _MessageSheet extends StatefulWidget {
   final TrustedContactModel contact;
   final ContactsController ctrl;
@@ -106,7 +103,6 @@ class _MessageSheetState extends State<_MessageSheet> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // ── Drag handle ────────────────────────────────────────────────
             const SizedBox(height: 12),
             Center(
               child: Container(
@@ -119,7 +115,6 @@ class _MessageSheetState extends State<_MessageSheet> {
             ),
             const SizedBox(height: 16),
 
-            // ── Contact header ─────────────────────────────────────────────
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Row(
@@ -192,8 +187,6 @@ class _MessageSheetState extends State<_MessageSheet> {
             Divider(height: 1, color: Colors.grey[100]),
             const SizedBox(height: 14),
 
-            // ── Location sharing card ──────────────────────────────────────
-            // Snackbar is handled inside ctrl.toggleSharing — do NOT add one here
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Obx(() {
@@ -278,7 +271,6 @@ class _MessageSheetState extends State<_MessageSheet> {
 
             const SizedBox(height: 16),
 
-            // ── Quick replies ──────────────────────────────────────────────
             Padding(
               padding: const EdgeInsets.only(left: 20, bottom: 10),
               child: Align(
@@ -324,7 +316,6 @@ class _MessageSheetState extends State<_MessageSheet> {
 
             const SizedBox(height: 14),
 
-            // ── Compose + send ─────────────────────────────────────────────
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
               child: Row(

@@ -1,17 +1,16 @@
-// lib/pages/contacts/contacts_page.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../controllers/contacts_controller.dart';
 import 'chat.dart';
+
 class ContactsPage extends StatelessWidget {
   const ContactsPage({super.key});
 
   static const _blue = Color(0xFF2196F3);
 
-  // FIXED: moved outside build() so it doesn't reset on every rebuild
-  // This page is the Contact tab — index 4
   static final RxInt _selectedIndex = 4.obs;
+  static final RxSet<String> _expandedIds = <String>{}.obs;
 
   void _handleNavigation(int index) {
     if (index == _selectedIndex.value) return;
@@ -30,7 +29,7 @@ class ContactsPage extends StatelessWidget {
         Get.offAllNamed('/profile');
         break;
       case 4:
-        break; // already here
+        break;
     }
   }
 
@@ -109,6 +108,7 @@ class ContactsPage extends StatelessWidget {
     );
   }
 
+
   Widget _buildList(BuildContext context, ContactsController ctrl) {
     final grouped = _grouped(ctrl.contacts);
     return ListView(
@@ -136,10 +136,7 @@ class ContactsPage extends StatelessWidget {
                   children: [
                     _buildContactTile(context, contact, ctrl),
                     if (!isLast)
-                      Divider(
-                          height: 1,
-                          indent: 70,
-                          color: Colors.grey[100]),
+                      Divider(height: 1, indent: 70, color: Colors.grey[100]),
                   ],
                 );
               }),
@@ -152,6 +149,7 @@ class ContactsPage extends StatelessWidget {
     );
   }
 
+
   Map<String, List<TrustedContactModel>> _grouped(
       List<TrustedContactModel> contacts) {
     final map = <String, List<TrustedContactModel>>{};
@@ -160,9 +158,7 @@ class ContactsPage extends StatelessWidget {
       map.putIfAbsent(c.category, () => []).add(c);
     }
     return Map.fromEntries(
-      order
-          .where((k) => map.containsKey(k))
-          .map((k) => MapEntry(k, map[k]!)),
+      order.where((k) => map.containsKey(k)).map((k) => MapEntry(k, map[k]!)),
     );
   }
 
@@ -198,11 +194,10 @@ class ContactsPage extends StatelessWidget {
 
   String _initials(String name) {
     final parts = name.trim().split(' ');
-    if (parts.length >= 2) {
-      return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
-    }
+    if (parts.length >= 2) return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
     return name.isEmpty ? '?' : name[0].toUpperCase();
   }
+
 
   Widget _buildEmptyState() {
     return Center(
@@ -214,8 +209,8 @@ class ContactsPage extends StatelessWidget {
             height: 100,
             decoration: BoxDecoration(
                 color: _blue.withOpacity(0.08), shape: BoxShape.circle),
-            child: Icon(Icons.people_outline,
-                size: 52, color: _blue.withOpacity(0.5)),
+            child:
+                Icon(Icons.people_outline, size: 52, color: _blue.withOpacity(0.5)),
           ),
           const SizedBox(height: 20),
           const Text('No trusted contacts yet',
@@ -234,6 +229,7 @@ class ContactsPage extends StatelessWidget {
     );
   }
 
+
   Widget _buildCategoryHeader(String category) {
     final color = _categoryColor(category);
     return Row(
@@ -249,129 +245,224 @@ class ContactsPage extends StatelessWidget {
         const SizedBox(width: 8),
         Text(category,
             style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.bold,
-                color: color)),
+                fontSize: 15, fontWeight: FontWeight.bold, color: color)),
       ],
     );
   }
 
+
   Widget _buildContactTile(BuildContext context, TrustedContactModel contact,
       ContactsController ctrl) {
     final color = _categoryColor(contact.category);
-    return ListTile(
-      contentPadding:
-          const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      leading: Container(
-        width: 44,
-        height: 44,
-        decoration: BoxDecoration(
-            color: color.withOpacity(0.15), shape: BoxShape.circle),
-        child: Center(
-          child: Text(_initials(contact.name),
-              style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: color,
-                  fontSize: 15)),
-        ),
-      ),
-      title: Text(contact.name,
-          style: const TextStyle(
-              fontWeight: FontWeight.w600, fontSize: 15)),
-      subtitle: Text(contact.phone,
-          style: TextStyle(color: Colors.grey[500], fontSize: 13)),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
+    return Obx(() {
+      final isExpanded = _expandedIds.contains(contact.id);
+      return Column(
         children: [
-          // ── Call button ────────────────────────────────────────────────
-          GestureDetector(
-            onTap: () => Get.toNamed('/call', arguments: {
-              'name': contact.name,
-              'channel': 'safebuddy_${contact.id}',
-            }),
-            child: Container(
-              width: 30,
-              height: 30,
+          ListTile(
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            onTap: () {
+              if (isExpanded) {
+                _expandedIds.remove(contact.id);
+              } else {
+                _expandedIds.add(contact.id);
+              }
+            },
+            leading: Container(
+              width: 44,
+              height: 44,
               decoration: BoxDecoration(
-                color: Colors.blue.withOpacity(0.1),
-                shape: BoxShape.circle,
+                  color: color.withOpacity(0.15), shape: BoxShape.circle),
+              child: Center(
+                child: Text(_initials(contact.name),
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: color,
+                        fontSize: 15)),
               ),
-              child:
-                  const Icon(Icons.phone, size: 15, color: Colors.blue),
             ),
-          ),
-          const SizedBox(width: 6),
-          // ── SMS button ─────────────────────────────────────────────────
-          GestureDetector(
-            onTap: () => showMessageSheet(context, contact, ctrl),            child: Container(
-              width: 30,
-              height: 30,
-              decoration: BoxDecoration(
-                color: Colors.green.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.message,
-                  size: 15, color: Colors.green),
-            ),
-          ),
-          const SizedBox(width: 6),
-          // ── Location toggle ────────────────────────────────────────────
-          GestureDetector(
-            onTap: () => ctrl.toggleSharing(contact),
-            child: Obx(() => AnimatedContainer(
+            title: Text(contact.name,
+                style: const TextStyle(
+                    fontWeight: FontWeight.w600, fontSize: 15)),
+            subtitle: Text(contact.phone,
+                style: TextStyle(color: Colors.grey[500], fontSize: 13)),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                AnimatedRotation(
+                  turns: isExpanded ? 0.5 : 0,
                   duration: const Duration(milliseconds: 200),
-                  width: 30,
-                  height: 30,
-                  decoration: BoxDecoration(
-                    color: contact.isSharing
-                        ? Colors.green.withOpacity(0.15)
-                        : Colors.grey.withOpacity(0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    contact.isSharing
-                        ? Icons.location_on
-                        : Icons.location_off_outlined,
-                    size: 16,
-                    color: contact.isSharing ? Colors.green : Colors.grey,
-                  ),
-                )),
-          ),
-          const SizedBox(width: 6),
-          // ── Delete button ──────────────────────────────────────────────
-          GestureDetector(
-            onTap: () => _deleteContact(context, contact, ctrl),
-            child: Container(
-              width: 30,
-              height: 30,
-              decoration: BoxDecoration(
-                  color: Colors.red.withOpacity(0.08),
-                  shape: BoxShape.circle),
-              child:
-                  const Icon(Icons.close, size: 16, color: Colors.red),
+                  child: Icon(Icons.keyboard_arrow_down,
+                      color: Colors.grey[400], size: 18),
+                ),
+                const SizedBox(width: 4),
+                _iconBtn(
+                  color: Colors.blue,
+                  icon: Icons.phone,
+                  onTap: () => Get.toNamed('/call', arguments: {
+                    'name': contact.name,
+                    'channel': 'safebuddy_${contact.id}',
+                  }),
+                ),
+                const SizedBox(width: 6),
+                _iconBtn(
+                  color: Colors.green,
+                  icon: Icons.message,
+                  onTap: () => showMessageSheet(context, contact, ctrl),
+                ),
+                const SizedBox(width: 6),
+                GestureDetector(
+                  onTap: () => ctrl.toggleSharing(contact),
+                  child: Obx(() => AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        width: 30,
+                        height: 30,
+                        decoration: BoxDecoration(
+                          color: contact.isSharing
+                              ? Colors.green.withOpacity(0.15)
+                              : Colors.grey.withOpacity(0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          contact.isSharing
+                              ? Icons.location_on
+                              : Icons.location_off_outlined,
+                          size: 16,
+                          color: contact.isSharing ? Colors.green : Colors.grey,
+                        ),
+                      )),
+                ),
+                const SizedBox(width: 6),
+                _iconBtn(
+                  color: Colors.red,
+                  icon: Icons.close,
+                  onTap: () => _deleteContact(context, contact, ctrl),
+                ),
+              ],
             ),
+          ),
+
+          AnimatedCrossFade(
+            duration: const Duration(milliseconds: 220),
+            crossFadeState: isExpanded
+                ? CrossFadeState.showFirst
+                : CrossFadeState.showSecond,
+            firstChild: Container(
+              margin: const EdgeInsets.only(left: 16, right: 16, bottom: 12),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: color.withOpacity(0.18)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (contact.email != null)
+                          _buildInfoRow(Icons.email_outlined, 'Email',
+                              contact.email!, color),
+                        if (contact.relation != null) ...[
+                          if (contact.email != null)
+                            Divider(height: 16, color: color.withOpacity(0.2)),
+                          _buildInfoRow(Icons.favorite_border, 'Relation',
+                              contact.relation!, color),
+                        ],
+                        if (contact.notes != null) ...[
+                          if (contact.email != null || contact.relation != null)
+                            Divider(height: 16, color: color.withOpacity(0.2)),
+                          _buildInfoRow(Icons.notes_outlined, 'Notes',
+                              contact.notes!, color),
+                        ],
+                        if (contact.email == null &&
+                            contact.relation == null &&
+                            contact.notes == null)
+                          Row(
+                            children: [
+                              Icon(Icons.info_outline,
+                                  size: 14, color: Colors.grey[400]),
+                              const SizedBox(width: 8),
+                              Text('No additional info saved',
+                                  style: TextStyle(
+                                      fontSize: 13, color: Colors.grey[400])),
+                            ],
+                          ),
+                      ],
+                    ),
+                  ),
+
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+                    child: SizedBox(
+                      width: double.infinity,
+                      height: 40,
+                      child: OutlinedButton.icon(
+                        onPressed: () =>
+                            _openEditContact(context, contact, ctrl),
+                        icon: Icon(Icons.edit_outlined, size: 16, color: color),
+                        label: Text('Edit contact',
+                            style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: color)),
+                        style: OutlinedButton.styleFrom(
+                          side: BorderSide(color: color.withOpacity(0.4)),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10)),
+                          backgroundColor: color.withOpacity(0.06),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            secondChild: const SizedBox.shrink(),
           ),
         ],
+      );
+    });
+  }
+
+  Widget _iconBtn(
+      {required Color color,
+      required IconData icon,
+      required VoidCallback onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 30,
+        height: 30,
+        decoration: BoxDecoration(
+            color: color.withOpacity(0.1), shape: BoxShape.circle),
+        child: Icon(icon, size: 15, color: color),
       ),
     );
   }
 
-  Future<void> _launchSms(String phone) async {
-    final uri = Uri(scheme: 'sms', path: phone);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri);
-    } else {
-      Get.snackbar(
-        '❌ Error',
-        'Could not open messages',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
-        borderRadius: 12,
-        margin: const EdgeInsets.all(16),
-      );
-    }
+  Widget _buildInfoRow(
+      IconData icon, String label, String value, Color color) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 15, color: color),
+        const SizedBox(width: 10),
+        Text('$label: ',
+            style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey[600])),
+        Expanded(
+          child: Text(value,
+              style: const TextStyle(fontSize: 13, color: Colors.black87)),
+        ),
+      ],
+    );
   }
+
 
   void _deleteContact(BuildContext context, TrustedContactModel contact,
       ContactsController ctrl) {
@@ -382,21 +473,19 @@ class ContactsPage extends StatelessWidget {
             RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Remove Contact',
             style: TextStyle(fontWeight: FontWeight.bold)),
-        content:
-            Text('Remove ${contact.name} from your trusted contacts?'),
+        content: Text('Remove ${contact.name} from your trusted contacts?'),
         actions: [
           TextButton(
-              onPressed: () => Get.back(),
-              child: const Text('Cancel')),
+              onPressed: () => Get.back(), child: const Text('Cancel')),
           ElevatedButton(
             onPressed: () {
               ctrl.removeContact(contact);
+              _expandedIds.remove(contact.id);
               Get.back();
             },
-            style:
-                ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Remove',
-                style: TextStyle(color: Colors.white)),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child:
+                const Text('Remove', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -408,7 +497,7 @@ class ContactsPage extends StatelessWidget {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => _AddContactSheet(
+      builder: (_) => _ContactSheet(
         onSave: (contact) {
           ctrl.addContact(contact);
           Navigator.pop(context);
@@ -425,37 +514,60 @@ class ContactsPage extends StatelessWidget {
       ),
     );
   }
+
+  void _openEditContact(BuildContext context, TrustedContactModel contact,
+      ContactsController ctrl) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _ContactSheet(
+        existing: contact,
+        onSave: (updated) {
+          ctrl.updateContact(updated);
+          Navigator.pop(context);
+          Get.snackbar(
+            '✅ Contact Updated',
+            '${updated.name} has been updated.',
+            snackPosition: SnackPosition.BOTTOM,
+            backgroundColor: Colors.blue[600],
+            colorText: Colors.white,
+            borderRadius: 12,
+            margin: const EdgeInsets.all(16),
+          );
+        },
+      ),
+    );
+  }
 }
 
-// ── Add Contact Bottom Sheet ──────────────────────────────────────────────────
-class _AddContactSheet extends StatefulWidget {
+
+class _ContactSheet extends StatefulWidget {
+  final TrustedContactModel? existing;
   final void Function(TrustedContactModel) onSave;
-  const _AddContactSheet({required this.onSave});
+
+  const _ContactSheet({this.existing, required this.onSave});
 
   @override
-  State<_AddContactSheet> createState() => _AddContactSheetState();
+  State<_ContactSheet> createState() => _ContactSheetState();
 }
 
-class _AddContactSheetState extends State<_AddContactSheet> {
+class _ContactSheetState extends State<_ContactSheet> {
   final _formKey = GlobalKey<FormState>();
-  final _nameCtrl = TextEditingController();
-  final _phoneCtrl = TextEditingController();
-  final _emailCtrl = TextEditingController();
-  final _relationCtrl = TextEditingController();
-  final _notesCtrl = TextEditingController();
+  late final TextEditingController _nameCtrl;
+  late final TextEditingController _phoneCtrl;
+  late final TextEditingController _emailCtrl;
+  late final TextEditingController _relationCtrl;
+  late final TextEditingController _notesCtrl;
 
-  String _selectedCategory = 'Family';
-  bool _shareLocation = false;
+  late String _selectedCategory;
+  late bool _shareLocation;
   bool _isSaving = false;
 
+  bool get _isEditing => widget.existing != null;
+
   static const _blue = Color(0xFF2196F3);
-  static const _categories = [
-    'Family',
-    'Friends',
-    'Work',
-    'Emergency',
-    'Other'
-  ];
+  static const _categories = ['Family', 'Friends', 'Work', 'Emergency', 'Other'];
 
   Color _catColor(String cat) {
     switch (cat) {
@@ -473,6 +585,19 @@ class _AddContactSheetState extends State<_AddContactSheet> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    final e = widget.existing;
+    _nameCtrl = TextEditingController(text: e?.name ?? '');
+    _phoneCtrl = TextEditingController(text: e?.phone ?? '');
+    _emailCtrl = TextEditingController(text: e?.email ?? '');
+    _relationCtrl = TextEditingController(text: e?.relation ?? '');
+    _notesCtrl = TextEditingController(text: e?.notes ?? '');
+    _selectedCategory = e?.category ?? 'Family';
+    _shareLocation = e?.isSharing ?? false;
+  }
+
+  @override
   void dispose() {
     _nameCtrl.dispose();
     _phoneCtrl.dispose();
@@ -486,7 +611,8 @@ class _AddContactSheetState extends State<_AddContactSheet> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isSaving = true);
     final contact = TrustedContactModel(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      id: widget.existing?.id ??
+          DateTime.now().millisecondsSinceEpoch.toString(),
       name: _nameCtrl.text.trim(),
       phone: _phoneCtrl.text.trim(),
       category: _selectedCategory,
@@ -494,8 +620,7 @@ class _AddContactSheetState extends State<_AddContactSheet> {
       relation: _relationCtrl.text.trim().isEmpty
           ? null
           : _relationCtrl.text.trim(),
-      notes:
-          _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
+      notes: _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
       isSharing: _shareLocation,
     );
     widget.onSave(contact);
@@ -509,8 +634,7 @@ class _AddContactSheetState extends State<_AddContactSheet> {
       child: Container(
         margin: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(24)),
+            color: Colors.white, borderRadius: BorderRadius.circular(24)),
         child: Form(
           key: _formKey,
           child: SingleChildScrollView(
@@ -519,6 +643,7 @@ class _AddContactSheetState extends State<_AddContactSheet> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
+               
                 Center(
                   child: Container(
                     width: 40,
@@ -529,6 +654,8 @@ class _AddContactSheetState extends State<_AddContactSheet> {
                   ),
                 ),
                 const SizedBox(height: 20),
+
+                
                 Row(
                   children: [
                     Container(
@@ -537,16 +664,22 @@ class _AddContactSheetState extends State<_AddContactSheet> {
                       decoration: BoxDecoration(
                           color: _blue.withOpacity(0.1),
                           shape: BoxShape.circle),
-                      child: const Icon(Icons.person_add,
-                          color: _blue, size: 22),
+                      child: Icon(
+                        _isEditing ? Icons.edit_outlined : Icons.person_add,
+                        color: _blue,
+                        size: 22,
+                      ),
                     ),
                     const SizedBox(width: 12),
-                    const Text('Add Trusted Contact',
-                        style: TextStyle(
-                            fontSize: 18, fontWeight: FontWeight.bold)),
+                    Text(
+                      _isEditing ? 'Edit Contact' : 'Add Trusted Contact',
+                      style: const TextStyle(
+                          fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 24),
+
                 const Text('Category',
                     style: TextStyle(
                         fontSize: 13,
@@ -558,23 +691,20 @@ class _AddContactSheetState extends State<_AddContactSheet> {
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
                     itemCount: _categories.length,
-                    separatorBuilder: (_, __) =>
-                        const SizedBox(width: 8),
+                    separatorBuilder: (_, __) => const SizedBox(width: 8),
                     itemBuilder: (_, i) {
                       final cat = _categories[i];
                       final selected = cat == _selectedCategory;
                       final color = _catColor(cat);
                       return GestureDetector(
-                        onTap: () =>
-                            setState(() => _selectedCategory = cat),
+                        onTap: () => setState(() => _selectedCategory = cat),
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 200),
                           padding: const EdgeInsets.symmetric(
                               horizontal: 16, vertical: 8),
                           decoration: BoxDecoration(
-                            color: selected
-                                ? color
-                                : color.withOpacity(0.1),
+                            color:
+                                selected ? color : color.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(
                               color: selected
@@ -587,15 +717,15 @@ class _AddContactSheetState extends State<_AddContactSheet> {
                               style: TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w600,
-                                  color: selected
-                                      ? Colors.white
-                                      : color)),
+                                  color:
+                                      selected ? Colors.white : color)),
                         ),
                       );
                     },
                   ),
                 ),
                 const SizedBox(height: 20),
+
                 _buildLabel('Full Name *'),
                 const SizedBox(height: 8),
                 _buildField(
@@ -644,8 +774,8 @@ class _AddContactSheetState extends State<_AddContactSheet> {
                   style: const TextStyle(fontSize: 14),
                   decoration: InputDecoration(
                     hintText: 'Any additional info about this contact...',
-                    hintStyle: TextStyle(
-                        color: Colors.grey[400], fontSize: 14),
+                    hintStyle:
+                        TextStyle(color: Colors.grey[400], fontSize: 14),
                     prefixIcon: const Padding(
                       padding: EdgeInsets.only(bottom: 40),
                       child: Icon(Icons.notes_outlined,
@@ -659,13 +789,14 @@ class _AddContactSheetState extends State<_AddContactSheet> {
                             BorderSide(color: Colors.grey[200]!)),
                     focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(
-                            color: _blue, width: 1.5)),
+                        borderSide:
+                            const BorderSide(color: _blue, width: 1.5)),
                     filled: true,
                     fillColor: Colors.grey[50],
                   ),
                 ),
                 const SizedBox(height: 20),
+
                 Container(
                   padding: const EdgeInsets.symmetric(
                       horizontal: 16, vertical: 14),
@@ -696,9 +827,8 @@ class _AddContactSheetState extends State<_AddContactSheet> {
                               ? Icons.location_on
                               : Icons.location_off_outlined,
                           size: 20,
-                          color: _shareLocation
-                              ? Colors.green
-                              : Colors.grey,
+                          color:
+                              _shareLocation ? Colors.green : Colors.grey,
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -706,8 +836,7 @@ class _AddContactSheetState extends State<_AddContactSheet> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
-                                'Share location with this contact',
+                            const Text('Share location with this contact',
                                 style: TextStyle(
                                     fontSize: 14,
                                     fontWeight: FontWeight.w600)),
@@ -716,8 +845,7 @@ class _AddContactSheetState extends State<_AddContactSheet> {
                                   ? 'They will see your location'
                                   : 'Location sharing is off',
                               style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey[500]),
+                                  fontSize: 12, color: Colors.grey[500]),
                             ),
                           ],
                         ),
@@ -732,6 +860,7 @@ class _AddContactSheetState extends State<_AddContactSheet> {
                   ),
                 ),
                 const SizedBox(height: 28),
+
                 SizedBox(
                   width: double.infinity,
                   height: 54,
@@ -743,10 +872,15 @@ class _AddContactSheetState extends State<_AddContactSheet> {
                             height: 20,
                             child: CircularProgressIndicator(
                                 color: Colors.white, strokeWidth: 2))
-                        : const Icon(Icons.check_circle_outline,
+                        : Icon(
+                            _isEditing
+                                ? Icons.save_outlined
+                                : Icons.check_circle_outline,
                             color: Colors.white),
                     label: Text(
-                      _isSaving ? 'Saving...' : 'Save Contact',
+                      _isSaving
+                          ? 'Saving...'
+                          : (_isEditing ? 'Save Changes' : 'Save Contact'),
                       style: const TextStyle(
                           color: Colors.white,
                           fontSize: 16,
@@ -761,6 +895,7 @@ class _AddContactSheetState extends State<_AddContactSheet> {
                   ),
                 ),
                 const SizedBox(height: 10),
+
                 SizedBox(
                   width: double.infinity,
                   height: 48,
@@ -806,8 +941,7 @@ class _AddContactSheetState extends State<_AddContactSheet> {
       style: const TextStyle(fontSize: 14),
       decoration: InputDecoration(
         hintText: hint,
-        hintStyle:
-            TextStyle(color: Colors.grey[400], fontSize: 14),
+        hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
         prefixIcon: Icon(icon, color: _blue, size: 20),
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 16, vertical: 14),

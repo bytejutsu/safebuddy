@@ -189,6 +189,35 @@ class ContactsController extends GetxController {
     }
   }
 
+  // ── UPDATE CONTACT ────────────────────────────────────────────────────────
+
+  Future<void> updateContact(TrustedContactModel updated) async {
+    if (_uid == null) return;
+    try {
+      await _db
+          .from('trusted_contacts')
+          .update({
+            'name': updated.name,
+            'phone': updated.phone,
+            'category': updated.category,
+            'email': updated.email,
+            'relation': updated.relation,
+            'notes': updated.notes,
+            'is_sharing': updated.isSharing,
+          })
+          .eq('id', updated.id)
+          .eq('user_id', _uid!);
+
+      final index = contacts.indexWhere((c) => c.id == updated.id);
+      if (index != -1) {
+        contacts[index] = updated;
+        contacts.refresh();
+      }
+    } catch (e) {
+      _snackError('Failed to update contact', e);
+    }
+  }
+
   // ── TOGGLE SHARING (writes history) ──────────────────────────────────────
 
   Future<void> toggleSharing(TrustedContactModel contact) async {

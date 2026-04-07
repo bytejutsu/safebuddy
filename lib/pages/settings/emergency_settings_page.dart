@@ -1,4 +1,3 @@
-// lib/pages/settings/emergency_settings_page.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../controllers/contacts_controller.dart';
@@ -14,7 +13,6 @@ class _EmergencySettingsPageState extends State<EmergencySettingsPage> {
   final RxInt missedChecksThreshold = 5.obs;
   final RxString selectedContact = ''.obs;
 
-  // This page is the Settings tab — index 2
   final RxInt selectedIndex = 2.obs;
 
   final ContactsController _contactsCtrl = ContactsController.to;
@@ -33,7 +31,7 @@ class _EmergencySettingsPageState extends State<EmergencySettingsPage> {
         Get.offAllNamed('/safety');
         break;
       case 2:
-        break; // already here
+        break; 
       case 3:
         Get.offAllNamed('/profile');
         break;
@@ -301,7 +299,6 @@ class _EmergencySettingsPageState extends State<EmergencySettingsPage> {
   }
 }
 
-// ── Counter Button ────────────────────────────────────────────────────────────
 class _CounterButton extends StatelessWidget {
   const _CounterButton({
     required this.icon,

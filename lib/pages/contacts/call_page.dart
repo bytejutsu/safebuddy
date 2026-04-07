@@ -1,4 +1,3 @@
-// lib/pages/contacts/call_page.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -46,7 +45,6 @@ class _CallPageState extends State<CallPage>
       CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut),
     );
 
-    // Outgoing: simulate connecting after 2 seconds
     if (!widget.isIncoming) {
       Future.delayed(const Duration(seconds: 2), () {
         if (mounted) _acceptCall();
@@ -105,7 +103,6 @@ class _CallPageState extends State<CallPage>
     );
   }
 
-  // ── Incoming call ─────────────────────────────────────────────────────────
   Widget _buildIncomingCall() {
     return Column(
       children: [
@@ -132,7 +129,6 @@ class _CallPageState extends State<CallPage>
 
         const SizedBox(height: 40),
 
-        // Pulsing avatar
         AnimatedBuilder(
           animation: _pulseAnim,
           builder: (_, child) =>
@@ -177,7 +173,6 @@ class _CallPageState extends State<CallPage>
 
         const Spacer(),
 
-        // Accept / Decline buttons
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 50),
           child: Row(
@@ -206,13 +201,11 @@ class _CallPageState extends State<CallPage>
     );
   }
 
-  // ── Active call ───────────────────────────────────────────────────────────
   Widget _buildActiveCall() {
     return Column(
       children: [
         const SizedBox(height: 50),
 
-        // Status badge
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
           decoration: BoxDecoration(
@@ -243,7 +236,6 @@ class _CallPageState extends State<CallPage>
 
         const SizedBox(height: 40),
 
-        // Avatar
         Container(
           width: 100, height: 100,
           decoration: BoxDecoration(
@@ -276,7 +268,7 @@ class _CallPageState extends State<CallPage>
 
         const SizedBox(height: 8),
 
-        // Timer
+        
         Text(
           _callAccepted ? _formatDuration(_secondsElapsed) : 'Connecting...',
           style:
@@ -285,7 +277,7 @@ class _CallPageState extends State<CallPage>
 
         const Spacer(),
 
-        // Controls
+
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 32),
           child: Column(
@@ -334,7 +326,6 @@ class _CallPageState extends State<CallPage>
   }
 }
 
-// ── Round button (Accept / Decline / End) ─────────────────────────────────────
 class _RoundCallButton extends StatelessWidget {
   final IconData icon;
   final Color color;
@@ -380,7 +371,6 @@ class _RoundCallButton extends StatelessWidget {
   }
 }
 
-// ── Square control button (Mute / Speaker / Hold) ─────────────────────────────
 class _ControlButton extends StatelessWidget {
   final IconData icon;
   final String label;
