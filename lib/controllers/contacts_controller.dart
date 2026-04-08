@@ -1,9 +1,7 @@
-// lib/controllers/contacts_controller.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-// ── Sharing History Model ─────────────────────────────────────────────────────
 class SharingHistoryEntry {
   final String id;
   final String contactId;
@@ -34,7 +32,6 @@ class SharingHistoryEntry {
     );
   }
 
-  /// e.g. "2 min 34 sec" or "45 sec"
   String get durationLabel {
     if (durationSecs == null) return 'Active';
     if (durationSecs! < 60) return '${durationSecs}s';
@@ -43,7 +40,6 @@ class SharingHistoryEntry {
     return s == 0 ? '${m}m' : '${m}m ${s}s';
   }
 
-  /// e.g. "Today 14:32" or "Mar 20 09:15"
   String get startedLabel {
     final now = DateTime.now();
     final dt = startedAt;
@@ -60,7 +56,7 @@ class SharingHistoryEntry {
   }
 }
 
-// ── Contact Model ─────────────────────────────────────────────────────────────
+
 class TrustedContactModel {
   final String id;
   final String name;
@@ -111,7 +107,7 @@ class TrustedContactModel {
       };
 }
 
-// ── Controller ────────────────────────────────────────────────────────────────
+
 class ContactsController extends GetxController {
   static ContactsController get to => Get.find();
 
@@ -145,8 +141,6 @@ class ContactsController extends GetxController {
       }
     });
   }
-
-  // ── CONTACTS ──────────────────────────────────────────────────────────────
 
   Future<void> fetchContacts() async {
     if (_uid == null) return;
@@ -189,8 +183,6 @@ class ContactsController extends GetxController {
     }
   }
 
-  // ── UPDATE CONTACT ────────────────────────────────────────────────────────
-
   Future<void> updateContact(TrustedContactModel updated) async {
     if (_uid == null) return;
     try {
@@ -218,13 +210,10 @@ class ContactsController extends GetxController {
     }
   }
 
-  // ── TOGGLE SHARING (writes history) ──────────────────────────────────────
-
   Future<void> toggleSharing(TrustedContactModel contact) async {
     if (_uid == null) return;
     final newValue = !contact.isSharing;
     try {
-      // 1. Update trusted_contacts row
       await _db
           .from('trusted_contacts')
           .update({'is_sharing': newValue})
@@ -233,7 +222,6 @@ class ContactsController extends GetxController {
       contacts.refresh();
 
       if (newValue) {
-        // 2a. Sharing started → insert a new history row
         await _db.from('sharing_history').insert({
           'user_id': _uid!,
           'contact_id': contact.id,
@@ -241,7 +229,6 @@ class ContactsController extends GetxController {
           'started_at': DateTime.now().toUtc().toIso8601String(),
         });
       } else {
-        // 2b. Sharing stopped → close the open row (no ended_at yet)
         final openRows = await _db
             .from('sharing_history')
             .select('id, started_at')
@@ -264,10 +251,8 @@ class ContactsController extends GetxController {
         }
       }
 
-      // 3. Refresh history list
       await fetchHistory();
 
-      // 4. Snackbar
       Get.snackbar(
         newValue ? '📍 Sharing On' : '🔕 Sharing Off',
         newValue
@@ -283,8 +268,6 @@ class ContactsController extends GetxController {
       _snackError('Failed to update sharing', e);
     }
   }
-
-  // ── HISTORY ───────────────────────────────────────────────────────────────
 
   Future<void> fetchHistory() async {
     if (_uid == null) return;
@@ -306,9 +289,13 @@ class ContactsController extends GetxController {
     }
   }
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
+  List<String> get contactNames =>
+      contacts.map((c) => c.name).toList();
 
-  List<String> get contactNames => contacts.map((c) => c.name).toList();
+  List<String> get emergencyContactNames => contacts
+      .where((c) => c.category == 'Emergency')
+      .map((c) => c.name)
+      .toList();
 
   void _snackError(String title, Object e) {
     Get.snackbar('❌ $title', e.toString(),

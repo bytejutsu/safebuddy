@@ -1,4 +1,3 @@
-// lib/pages/auth/signin_page.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -111,7 +110,6 @@ class _SignInPageState extends State<SignInPage> {
             children: [
               const SizedBox(height: 48),
 
-              // ── Logo ─────────────────────────────────────────────────────
               Center(
                 child: Container(
                   width: 72, height: 72,

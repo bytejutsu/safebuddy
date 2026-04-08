@@ -1,4 +1,3 @@
-// lib/pages/auth/signup_page.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -25,7 +24,6 @@ class _SignUpPageState extends State<SignUpPage> {
 
   SupabaseClient get _supabase => Supabase.instance.client;
 
-  // ── Password strength ─────────────────────────────────────────────────────
 
   int _strengthScore(String p) {
     int score = 0;
@@ -57,7 +55,6 @@ class _SignUpPageState extends State<SignUpPage> {
     }
   }
 
-  // ── Validation ────────────────────────────────────────────────────────────
 
   String? _validatePassword(String password) {
     if (password.length < 8)  return 'At least 8 characters required.';
@@ -73,7 +70,6 @@ class _SignUpPageState extends State<SignUpPage> {
     return null;
   }
 
-  // ── Sign up ───────────────────────────────────────────────────────────────
 
   Future<void> _handleSignUp() async {
     final email    = _emailCtrl.text.trim().toLowerCase();
@@ -184,7 +180,6 @@ class _SignUpPageState extends State<SignUpPage> {
             children: [
               const SizedBox(height: 48),
 
-              // ── Logo ─────────────────────────────────────────────────────
               Center(
                 child: Container(
                   width: 72, height: 72,
@@ -218,7 +213,6 @@ class _SignUpPageState extends State<SignUpPage> {
               ),
               const SizedBox(height: 32),
 
-              // ── Email ────────────────────────────────────────────────────
               _label('Email'),
               const SizedBox(height: 8),
               _buildField(
@@ -229,7 +223,6 @@ class _SignUpPageState extends State<SignUpPage> {
               ),
               const SizedBox(height: 20),
 
-              // ── Password ─────────────────────────────────────────────────
               _label('Password'),
               const SizedBox(height: 8),
               _buildField(
@@ -249,7 +242,6 @@ class _SignUpPageState extends State<SignUpPage> {
                 onChanged: (_) => setState(() {}),
               ),
 
-              // ── Strength bar ─────────────────────────────────────────────
               if (password.isNotEmpty) ...[
                 const SizedBox(height: 10),
                 Row(
@@ -284,7 +276,6 @@ class _SignUpPageState extends State<SignUpPage> {
 
               const SizedBox(height: 20),
 
-              // ── Confirm password ─────────────────────────────────────────
               _label('Confirm password'),
               const SizedBox(height: 8),
               _buildField(
@@ -304,7 +295,6 @@ class _SignUpPageState extends State<SignUpPage> {
                 onChanged: (_) => setState(() {}),
               ),
 
-              // ── Match indicator ──────────────────────────────────────────
               if (_confirmCtrl.text.isNotEmpty) ...[
                 const SizedBox(height: 6),
                 Row(
@@ -331,7 +321,6 @@ class _SignUpPageState extends State<SignUpPage> {
 
               const SizedBox(height: 36),
 
-              // ── Sign up button ───────────────────────────────────────────
               SizedBox(
                 width: double.infinity, height: 52,
                 child: ElevatedButton(

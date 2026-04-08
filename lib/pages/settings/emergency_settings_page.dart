@@ -31,7 +31,7 @@ class _EmergencySettingsPageState extends State<EmergencySettingsPage> {
         Get.offAllNamed('/safety');
         break;
       case 2:
-        break; 
+        break;
       case 3:
         Get.offAllNamed('/profile');
         break;
@@ -135,7 +135,7 @@ class _EmergencySettingsPageState extends State<EmergencySettingsPage> {
             ),
             const SizedBox(height: 20),
             Obx(() {
-              final names = _contactsCtrl.contactNames;
+              final names = _contactsCtrl.emergencyContactNames;
 
               if (selectedContact.value.isNotEmpty &&
                   !names.contains(selectedContact.value)) {
@@ -146,8 +146,8 @@ class _EmergencySettingsPageState extends State<EmergencySettingsPage> {
                 child: GestureDetector(
                   onTap: names.isEmpty
                       ? () => Get.snackbar(
-                            'No contacts',
-                            'Go to the Contacts tab and add a trusted contact first.',
+                            'No emergency contacts',
+                            'Go to the Contacts tab and add a contact with the "Emergency" category first.',
                             snackPosition: SnackPosition.BOTTOM,
                             backgroundColor: _blue,
                             colorText: Colors.white,
@@ -168,9 +168,9 @@ class _EmergencySettingsPageState extends State<EmergencySettingsPage> {
                       children: [
                         Text(
                           names.isEmpty
-                              ? 'No contacts added yet'
+                              ? 'No emergency contacts added yet'
                               : selectedContact.value.isEmpty
-                                  ? 'Select contact'
+                                  ? 'Select emergency contact'
                                   : selectedContact.value,
                           style: TextStyle(
                             fontSize: 15,
@@ -194,10 +194,10 @@ class _EmergencySettingsPageState extends State<EmergencySettingsPage> {
               );
             }),
             const SizedBox(height: 12),
-            Obx(() => _contactsCtrl.contacts.isEmpty
+            Obx(() => _contactsCtrl.emergencyContactNames.isEmpty
                 ? Center(
                     child: Text(
-                      'Add contacts in the Contacts tab to select one here.',
+                      'Add a contact with the "Emergency" category in the Contacts tab.',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                           fontSize: 12,
@@ -282,7 +282,8 @@ class _EmergencySettingsPageState extends State<EmergencySettingsPage> {
           ...names.map(
             (name) => Obx(() => ListTile(
                   title: Text(name),
-                  leading: const Icon(Icons.person_outline),
+                  leading: const Icon(Icons.emergency_rounded,
+                      color: Color(0xFFE57373)),
                   trailing: selectedContact.value == name
                       ? const Icon(Icons.check, color: Color(0xFF4CAF50))
                       : null,

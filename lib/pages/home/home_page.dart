@@ -10,9 +10,9 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   final RxBool isLocationSharingEnabled = true.obs;
-  final RxBool isPeriodicalChecksEnabled = true.obs; 
-  final RxBool isAIProtectionEnabled = true.obs;    
-  final RxDouble periodicalCheckInterval = 0.3.obs;
+  final RxBool isPeriodicalChecksEnabled = true.obs;
+  final RxBool isAIProtectionEnabled = true.obs;
+  final RxInt periodicalCheckMinutes = 5.obs; // default = 5 min
 
   bool _prevPeriodical = true;
   bool _prevAI = true;
@@ -36,7 +36,7 @@ class _HomePageState extends State<HomePage> {
     selectedIndex.value = index;
     switch (index) {
       case 0:
-        break; 
+        break;
       case 1:
         Get.offAllNamed('/safety');
         break;
@@ -50,6 +50,24 @@ class _HomePageState extends State<HomePage> {
         Get.offAllNamed('/contacts');
         break;
     }
+  }
+
+  /// Full readable label e.g. "Every 5 min" / "Every 1h 30m"
+  String _minuteLabel(int m) {
+    if (m < 60) return 'Every $m min';
+    final h = m ~/ 60;
+    final rem = m % 60;
+    if (rem == 0) return 'Every ${h}h';
+    return 'Every ${h}h ${rem}m';
+  }
+
+  /// Short label for the thumb bubble e.g. "5m" / "1h" / "1h30"
+  String _minuteShort(int m) {
+    if (m < 60) return '${m}m';
+    final h = m ~/ 60;
+    final rem = m % 60;
+    if (rem == 0) return '${h}h';
+    return '${h}h${rem}';
   }
 
   @override
@@ -112,7 +130,7 @@ class _HomePageState extends State<HomePage> {
                 )),
             const SizedBox(height: 16),
             Obx(() => _buildSlider(
-                  value: periodicalCheckInterval,
+                  minutes: periodicalCheckMinutes,
                   enabled: isLocationSharingEnabled.value &&
                       isPeriodicalChecksEnabled.value,
                 )),
@@ -219,27 +237,230 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildSlider({required RxDouble value, required bool enabled}) {
-    return Obx(() => SliderTheme(
-          data: SliderThemeData(
-            trackHeight: 4,
-            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10),
-            overlayShape: const RoundSliderOverlayShape(overlayRadius: 20),
-            activeTrackColor:
-                enabled ? const Color(0xFF7B6FCD) : Colors.grey[300],
-            inactiveTrackColor: Colors.grey[300],
-            thumbColor: enabled ? const Color(0xFF7B6FCD) : Colors.grey[400],
-            overlayColor: enabled
-                ? const Color(0xFF7B6FCD).withValues(alpha: 0.15)
-                : Colors.transparent,
+  Widget _buildSlider({required RxInt minutes, required bool enabled}) {
+    const ticks = [1, 15, 30, 60, 90, 120];
+
+    return Obx(() {
+      final currentMinutes = minutes.value;
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Live badge
+          Row(
+            children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                decoration: BoxDecoration(
+                  color: enabled
+                      ? const Color(0xFF7B6FCD).withValues(alpha: 0.12)
+                      : Colors.grey[200],
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: enabled
+                        ? const Color(0xFF7B6FCD).withValues(alpha: 0.35)
+                        : Colors.grey[300]!,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.timer_outlined,
+                      size: 15,
+                      color: enabled
+                          ? const Color(0xFF7B6FCD)
+                          : Colors.grey[400],
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      _minuteLabel(currentMinutes),
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: enabled
+                            ? const Color(0xFF7B6FCD)
+                            : Colors.grey[400],
+                        letterSpacing: 0.2,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-          child: Slider(
-            value: value.value,
-            onChanged: enabled ? (v) => value.value = v : null,
+
+          const SizedBox(height: 6),
+
+          // Slider
+          SliderTheme(
+            data: SliderThemeData(
+              trackHeight: 5,
+              thumbShape: _BubbleThumbShape(
+                label: _minuteShort(currentMinutes),
+                enabled: enabled,
+              ),
+              overlayShape:
+                  const RoundSliderOverlayShape(overlayRadius: 22),
+              activeTrackColor:
+                  enabled ? const Color(0xFF7B6FCD) : Colors.grey[300],
+              inactiveTrackColor: Colors.grey[200],
+              thumbColor:
+                  enabled ? const Color(0xFF7B6FCD) : Colors.grey[400],
+              overlayColor: enabled
+                  ? const Color(0xFF7B6FCD).withValues(alpha: 0.12)
+                  : Colors.transparent,
+              tickMarkShape:
+                  const RoundSliderTickMarkShape(tickMarkRadius: 3),
+              activeTickMarkColor:
+                  Colors.white.withValues(alpha: enabled ? 0.8 : 0.0),
+              inactiveTickMarkColor:
+                  Colors.grey[400]!.withValues(alpha: enabled ? 1.0 : 0.0),
+            ),
+            child: Slider(
+              min: 1,
+              max: 120,
+              divisions: 119,
+              value: currentMinutes.toDouble(),
+              onChanged: enabled ? (v) => minutes.value = v.round() : null,
+            ),
           ),
-        ));
+
+          // Tick labels
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: ticks.map((t) {
+                final isActive = enabled && currentMinutes >= t;
+                return Text(
+                  t == 1
+                      ? '1m'
+                      : t >= 60
+                          ? '${t ~/ 60}h'
+                          : '${t}m',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: isActive
+                        ? const Color(0xFF7B6FCD)
+                        : Colors.grey[400],
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ],
+      );
+    });
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Custom thumb that shows the current value inside a pill bubble
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _BubbleThumbShape extends SliderComponentShape {
+  final String label;
+  final bool enabled;
+
+  const _BubbleThumbShape({required this.label, required this.enabled});
+
+  static const _purple = Color(0xFF7B6FCD);
+
+  @override
+  Size getPreferredSize(bool isEnabled, bool isDiscrete) =>
+      const Size(48, 32);
+
+  @override
+  void paint(
+    PaintingContext context,
+    Offset center, {
+    required Animation<double> activationAnimation,
+    required Animation<double> enableAnimation,
+    required bool isDiscrete,
+    required TextPainter labelPainter,
+    required RenderBox parentBox,
+    required SliderThemeData sliderTheme,
+    required TextDirection textDirection,
+    required double value,
+    required double textScaleFactor,
+    required Size sizeWithOverflow,
+  }) {
+    final canvas = context.canvas;
+
+    final pillW = (label.length * 8.0 + 20).clamp(44.0, 72.0);
+    const pillH = 26.0;
+    const stemH = 6.0;
+    const r = pillH / 2;
+
+    final fillColor = enabled ? _purple : Colors.grey[400]!;
+
+    // Shadow
+    final shadowPaint = Paint()
+      ..color = fillColor.withValues(alpha: 0.25)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
+    final shadowRect = RRect.fromRectAndRadius(
+      Rect.fromCenter(
+        center: center.translate(0, -(pillH / 2 + stemH + 1)),
+        width: pillW,
+        height: pillH,
+      ),
+      const Radius.circular(r),
+    );
+    canvas.drawRRect(shadowRect, shadowPaint);
+
+    // Pill body
+    final pillRect = RRect.fromRectAndRadius(
+      Rect.fromCenter(
+        center: center.translate(0, -(pillH / 2 + stemH)),
+        width: pillW,
+        height: pillH,
+      ),
+      const Radius.circular(r),
+    );
+    canvas.drawRRect(pillRect, Paint()..color = fillColor);
+
+    // Stem triangle pointing down
+    final stemPath = Path()
+      ..moveTo(center.dx - 5, center.dy - stemH)
+      ..lineTo(center.dx + 5, center.dy - stemH)
+      ..lineTo(center.dx, center.dy - 1)
+      ..close();
+    canvas.drawPath(stemPath, Paint()..color = fillColor);
+
+    // Circle thumb dot
+    canvas.drawCircle(
+        center, 7, Paint()..color = enabled ? _purple : Colors.grey[400]!);
+    canvas.drawCircle(
+        center, 4, Paint()..color = Colors.white.withValues(alpha: 0.9));
+
+    // Label text
+    final tp = TextPainter(
+      text: TextSpan(
+        text: label,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.3,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    tp.paint(
+      canvas,
+      center.translate(
+        -tp.width / 2,
+        -(pillH / 2 + stemH + tp.height / 2),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 class _BigCircleToggle extends StatelessWidget {
   const _BigCircleToggle({required this.value, required this.onChanged});
@@ -303,7 +524,7 @@ class _PillToggle extends StatelessWidget {
   final ValueChanged<bool>? onChanged;
 
   static const _onGreen = Color(0xFF4CD964);
-  static const _offGrey = Color(0xFFAAAAAA); 
+  static const _offGrey = Color(0xFFAAAAAA);
   static const _disabledGrey = Color(0xFFE5E5EA);
   static const _pillWidth = 72.0;
   static const _pillHeight = 34.0;
