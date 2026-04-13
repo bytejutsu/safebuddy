@@ -103,9 +103,8 @@ class _GlobePageState extends State<GlobePage>
     switch (index) {
       case 0: Get.offAllNamed('/home'); break;
       case 1: break;
-      case 2: Get.offAllNamed('/settings'); break;
-      case 3: Get.offAllNamed('/profile'); break;
-      case 4: Get.offAllNamed('/contacts'); break;
+      case 2: Get.offAllNamed('/profile'); break;
+      case 3: Get.offAllNamed('/contacts'); break;
     }
   }
 
@@ -512,8 +511,7 @@ class _GlobePageState extends State<GlobePage>
                     activeIcon: Icon(Icons.home), label: 'Home'),
                 BottomNavigationBarItem(icon: Icon(Icons.shield_outlined),
                     activeIcon: Icon(Icons.shield), label: 'Safety'),
-                BottomNavigationBarItem(icon: Icon(Icons.settings_outlined),
-                    activeIcon: Icon(Icons.settings), label: 'Settings'),
+              
                 BottomNavigationBarItem(icon: Icon(Icons.person_outline),
                     activeIcon: Icon(Icons.person), label: 'Profile'),
                 BottomNavigationBarItem(icon: Icon(Icons.contact_support_outlined),

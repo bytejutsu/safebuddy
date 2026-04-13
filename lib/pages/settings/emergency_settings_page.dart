@@ -237,10 +237,7 @@ class _EmergencySettingsPageState extends State<EmergencySettingsPage> {
                     icon: Icon(Icons.shield_outlined),
                     activeIcon: Icon(Icons.shield),
                     label: 'Safety'),
-                BottomNavigationBarItem(
-                    icon: Icon(Icons.settings_outlined),
-                    activeIcon: Icon(Icons.settings),
-                    label: 'Settings'),
+               
                 BottomNavigationBarItem(
                     icon: Icon(Icons.person_outline),
                     activeIcon: Icon(Icons.person),

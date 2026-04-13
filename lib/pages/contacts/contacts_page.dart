@@ -9,7 +9,7 @@ class ContactsPage extends StatelessWidget {
 
   static const _blue = Color(0xFF2196F3);
 
-  static final RxInt _selectedIndex = 4.obs;
+  static final RxInt _selectedIndex = 2.obs;
   static final RxSet<String> _expandedIds = <String>{}.obs;
 
   void _handleNavigation(int index) {
@@ -21,14 +21,11 @@ class ContactsPage extends StatelessWidget {
         break;
       case 1:
         Get.offAllNamed('/safety');
-        break;
+        break; 
       case 2:
-        Get.offAllNamed('/settings');
-        break;
-      case 3:
         Get.offAllNamed('/profile');
         break;
-      case 4:
+      case 3:
         break;
     }
   }
@@ -63,7 +60,7 @@ class ContactsPage extends StatelessWidget {
         shape: const CircleBorder(),
         child: const Icon(Icons.add, color: Colors.white, size: 28),
       ),
-      bottomNavigationBar: Obx(() => Container(
+      bottomNavigationBar: Container(
             decoration: BoxDecoration(
               boxShadow: [
                 BoxShadow(
@@ -73,7 +70,7 @@ class ContactsPage extends StatelessWidget {
               ],
             ),
             child: BottomNavigationBar(
-              currentIndex: _selectedIndex.value,
+              currentIndex: 3,
               type: BottomNavigationBarType.fixed,
               backgroundColor: _blue,
               selectedItemColor: Colors.white,
@@ -90,10 +87,7 @@ class ContactsPage extends StatelessWidget {
                     icon: Icon(Icons.shield_outlined),
                     activeIcon: Icon(Icons.shield),
                     label: 'Safety'),
-                BottomNavigationBarItem(
-                    icon: Icon(Icons.settings_outlined),
-                    activeIcon: Icon(Icons.settings),
-                    label: 'Settings'),
+                
                 BottomNavigationBarItem(
                     icon: Icon(Icons.person_outline),
                     activeIcon: Icon(Icons.person),
@@ -104,8 +98,7 @@ class ContactsPage extends StatelessWidget {
                     label: 'Contact'),
               ],
             ),
-          )),
-    );
+          ));
   }
 
 

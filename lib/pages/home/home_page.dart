@@ -40,13 +40,11 @@ class _HomePageState extends State<HomePage> {
       case 1:
         Get.offAllNamed('/safety');
         break;
+    
       case 2:
-        Get.offAllNamed('/settings');
-        break;
-      case 3:
         Get.offAllNamed('/profile');
         break;
-      case 4:
+      case 3:
         Get.offAllNamed('/contacts');
         break;
     }
@@ -191,11 +189,8 @@ class _HomePageState extends State<HomePage> {
                   activeIcon: Icon(Icons.shield),
                   label: 'Safety',
                 ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.settings_outlined),
-                  activeIcon: Icon(Icons.settings),
-                  label: 'Settings',
-                ),
+               
+              
                 BottomNavigationBarItem(
                   icon: Icon(Icons.person_outline),
                   activeIcon: Icon(Icons.person),

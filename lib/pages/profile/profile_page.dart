@@ -21,7 +21,7 @@ class _ProfilePageState extends State<ProfilePage> {
   static const Color _indigo = Color(0xFF6360B7);
   static const Color _green = Color(0xFF4CAF50);
 
-  final RxInt _navIndex = 3.obs;
+  final RxInt _navIndex = 2.obs;
   final ImagePicker _picker = ImagePicker();
   final SupabaseClient _supabase = Supabase.instance.client;
 
@@ -357,9 +357,8 @@ class _ProfilePageState extends State<ProfilePage> {
     switch (i) {
       case 0: Get.offAllNamed('/home'); break;
       case 1: Get.offAllNamed('/safety'); break;
-      case 2: Get.offAllNamed('/settings'); break;
-      case 3: break;
-      case 4: Get.offAllNamed('/contacts'); break;
+      case 2: break;
+      case 3: Get.offAllNamed('/contacts'); break;
     }
   }
 
@@ -822,7 +821,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   blurRadius: 10, offset: const Offset(0, -2))],
             ),
             child: BottomNavigationBar(
-              currentIndex: _navIndex.value,
+              currentIndex: 2,
               type: BottomNavigationBarType.fixed,
               backgroundColor: _blue,
               selectedItemColor: Colors.white,
@@ -835,8 +834,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     activeIcon: Icon(Icons.home), label: 'Home'),
                 BottomNavigationBarItem(icon: Icon(Icons.shield_outlined),
                     activeIcon: Icon(Icons.shield), label: 'Safety'),
-                BottomNavigationBarItem(icon: Icon(Icons.settings_outlined),
-                    activeIcon: Icon(Icons.settings), label: 'Settings'),
+                
                 BottomNavigationBarItem(icon: Icon(Icons.person_outline),
                     activeIcon: Icon(Icons.person), label: 'Profile'),
                 BottomNavigationBarItem(
