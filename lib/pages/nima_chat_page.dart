@@ -54,7 +54,7 @@ class _NimaChatPageState extends State<NimaChatPage>
   final _scrollCtrl = ScrollController();
   bool _isTyping = false;
 
-  // ── suggestion chips by context ────────────
+  // ── suggestion chips ────────────────────────
   List<String> _chips = [
     "🏖️ Safest beach cities",
     "🌙 Where to go tonight?",
@@ -73,7 +73,6 @@ class _NimaChatPageState extends State<NimaChatPage>
       duration: const Duration(milliseconds: 1200),
     )..repeat();
 
-    // Welcome message
     Future.delayed(const Duration(milliseconds: 300), () {
       if (mounted) {
         setState(() {
@@ -101,41 +100,55 @@ class _NimaChatPageState extends State<NimaChatPage>
   String? _extractCity(String text) {
     final t = text.trim();
     final patterns = [
-      RegExp(r'(?:is|how safe is|safety (?:in|of)|about|tell me about|check)\s+(.+?)(?:\s+safe|\s+dangerous|\?|$)', caseSensitive: false),
+      RegExp(
+          r'(?:is|how safe is|safety (?:in|of)|about|tell me about|check)\s+(.+?)(?:\s+safe|\s+dangerous|\?|$)',
+          caseSensitive: false),
       RegExp(r'(.+?)\s+(?:safety|safe\?|crime)', caseSensitive: false),
     ];
+
     for (final p in patterns) {
       final m = p.firstMatch(t);
-      if (m != null) return _toTitleCase(m.group(1)!.trim());
+      if (m != null) return m.group(1)!.trim();
     }
-    // short input = likely a city name
+
     if (t.split(' ').length <= 4 && !_isQuestion(t)) {
-      return _toTitleCase(t);
+      return t;
     }
     return null;
   }
 
   bool _isQuestion(String t) {
-    final q = t.toLowerCase();
-    return q.startsWith('where') || q.startsWith('what') ||
-        q.startsWith('how') || q.startsWith('which') ||
-        q.startsWith('list') || q.startsWith('show') ||
-        q.contains('safest') || q.contains('dangerous') ||
-        q.contains('avoid') || q.contains('tonight') ||
-        q.contains('night') || q.contains('beach');
-  }
+    final q = t.toLowerCase().trim();
 
-  String _toTitleCase(String s) => s
-      .split(' ')
-      .map((w) => w.isNotEmpty ? w[0].toUpperCase() + w.substring(1).toLowerCase() : '')
-      .join(' ');
+    // Words that are never city names
+    const nonCityWords = {
+      'yes', 'no', 'ok', 'okay', 'hi', 'hey', 'hello',
+      'thanks', 'cool', 'great', 'nice', 'wow', 'sure', 'help', 'more',
+      'yep', 'nope', 'alright', 'hola', 'salam', 'salut', 'bonjour',
+      'thank you', 'thx',
+    };
+    if (nonCityWords.contains(q)) return true;
+
+    return q.startsWith('where') ||
+        q.startsWith('what') ||
+        q.startsWith('how') ||
+        q.startsWith('which') ||
+        q.startsWith('list') ||
+        q.startsWith('show') ||
+        q.contains('safest') ||
+        q.contains('dangerous') ||
+        q.contains('avoid') ||
+        q.contains('tonight') ||
+        q.contains('night') ||
+        q.contains('beach');
+  }
 
   Future<Map<String, dynamic>?> _queryCityData(String city) async {
     try {
       final res = await supabase
           .from('safety_data')
           .select()
-          .ilike('city', '%$city%');
+          .ilike('city', '%${city.trim()}%');
       if ((res as List).isEmpty) return null;
       return res.first as Map<String, dynamic>;
     } catch (_) {
@@ -186,77 +199,144 @@ class _NimaChatPageState extends State<NimaChatPage>
     });
     _scrollToBottom();
 
-    // Simulate thinking delay
     await Future.delayed(Duration(milliseconds: 600 + Random().nextInt(600)));
-
     if (!mounted) return;
 
-    final t = text.toLowerCase();
+    final t = text.toLowerCase().trim();
 
-    // ── Safest cities ──
-    if (t.contains('safest') || t.contains('safe cities') || t.contains('safest cities')) {
+    // ── Greetings / small talk ──────────────────
+    const greetings = {
+      'hi', 'hello', 'hey', 'hola', 'salam', 'salut', 'bonjour',
+      'yes', 'no', 'ok', 'okay', 'thanks', 'thank you', 'thx',
+      'cool', 'great', 'nice', 'wow', 'yep', 'nope', 'sure', 'alright',
+    };
+    if (greetings.contains(t)) {
+      _addMessage(_Msg(role: 'assistant', text: _smallTalkReply(t)));
+      _updateChips([
+        "🏖️ Safest beach cities",
+        "🌙 Where to go tonight?",
+        "🏙️ Is Tunis safe?",
+        "⚠️ Dangerous areas to avoid",
+      ]);
+      return;
+    }
+
+    // ── Safest cities ───────────────────────────
+    if (t.contains('safest') ||
+        t.contains('safe cities') ||
+        t.contains('safest cities')) {
       final cities = await _querySafestCities(maxCrime: 25);
       _addMessage(_Msg(
         role: 'assistant',
         text: 'safest_list',
         type: _MsgType.list,
-        cardData: {'cities': cities, 'title': '🟢 Safest Cities in Tunisia', 'mode': 'safe'},
+        cardData: {
+          'cities': cities,
+          'title': '🟢 Safest Cities in Tunisia',
+          'mode': 'safe'
+        },
       ));
-      _updateChips(['🏖️ Tell me about Hammamet', '🌙 Night safety in La Marsa', '🏄 Beach destinations', '📍 Sousse safety']);
+      _updateChips([
+        '🏖️ Tell me about Hammamet',
+        '🌙 Night safety in La Marsa',
+        '🏄 Beach destinations',
+        '📍 Sousse safety'
+      ]);
       return;
     }
 
-    // ── Dangerous / avoid ──
-    if (t.contains('dangerous') || t.contains('avoid') || t.contains('unsafe') || t.contains('worst')) {
+    // ── Dangerous / avoid ───────────────────────
+    if (t.contains('dangerous') ||
+        t.contains('avoid') ||
+        t.contains('unsafe') ||
+        t.contains('worst')) {
       final cities = await _queryDangerousCities();
       _addMessage(_Msg(
         role: 'assistant',
         text: 'danger_list',
         type: _MsgType.list,
-        cardData: {'cities': cities, 'title': '🔴 High-Risk Areas', 'mode': 'danger'},
+        cardData: {
+          'cities': cities,
+          'title': '🔴 High-Risk Areas',
+          'mode': 'danger'
+        },
       ));
-      _updateChips(['🛡️ How to stay safe?', '🏙️ Safe areas in Tunis', '🌙 Night safety tips', '📞 Emergency numbers']);
+      _updateChips([
+        '🛡️ How to stay safe?',
+        '🏙️ Safe areas in Tunis',
+        '🌙 Night safety tips',
+        '📞 Emergency numbers'
+      ]);
       return;
     }
 
-    // ── Night / tonight ──
-    if (t.contains('night') || t.contains('tonight') || t.contains('after dark')) {
-      _addMessage(_Msg(
-        role: 'assistant',
-        text: _nightReply(),
-      ));
-      _updateChips(['🌙 La Marsa at night', '🌙 Sidi Bou Said at night', '🌙 Hammamet at night', '⚠️ Areas to avoid at night']);
+    // ── Night / tonight ─────────────────────────
+    if (t.contains('night') ||
+        t.contains('tonight') ||
+        t.contains('after dark')) {
+      _addMessage(_Msg(role: 'assistant', text: _nightReply()));
+      _updateChips([
+        '🌙 La Marsa at night',
+        '🌙 Sidi Bou Said at night',
+        '🌙 Hammamet at night',
+        '⚠️ Areas to avoid at night'
+      ]);
       return;
     }
 
-    // ── Beach ──
+    // ── Beach ───────────────────────────────────
     if (t.contains('beach') || t.contains('coast') || t.contains('sea')) {
       final cities = await _querySafestCities(filter: 'safe', maxCrime: 30);
       _addMessage(_Msg(
         role: 'assistant',
         text: 'beach_list',
         type: _MsgType.list,
-        cardData: {'cities': cities, 'title': '🏖️ Safest Beach & Coastal Cities', 'mode': 'safe'},
+        cardData: {
+          'cities': cities,
+          'title': '🏖️ Safest Beach & Coastal Cities',
+          'mode': 'safe'
+        },
       ));
-      _updateChips(['🏖️ Tell me about Djerba', '🏖️ Hammamet safety', '⛵ Port El Kantaoui', '🌊 Tabarka']);
+      _updateChips([
+        '🏖️ Tell me about Djerba',
+        '🏖️ Hammamet safety',
+        '⛵ Port El Kantaoui',
+        '🌊 Tabarka'
+      ]);
       return;
     }
 
-    // ── Tips / how to stay safe ──
-    if (t.contains('tip') || t.contains('stay safe') || t.contains('advice') || t.contains('how to')) {
+    // ── Tips / how to stay safe ─────────────────
+    if (t.contains('tip') ||
+        t.contains('stay safe') ||
+        t.contains('advice') ||
+        t.contains('how to')) {
       _addMessage(_Msg(role: 'assistant', text: _safetyTips()));
-      _updateChips(['🏙️ Tunis safety', '🌙 Night safety', '🚗 Driving tips', '📞 Emergency numbers']);
+      _updateChips([
+        '🏙️ Tunis safety',
+        '🌙 Night safety',
+        '🚗 Driving tips',
+        '📞 Emergency numbers'
+      ]);
       return;
     }
 
-    // ── Emergency ──
-    if (t.contains('emergency') || t.contains('police') || t.contains('number') || t.contains('call')) {
+    // ── Emergency ───────────────────────────────
+    if (t.contains('emergency') ||
+        t.contains('police') ||
+        t.contains('number') ||
+        t.contains('call')) {
       _addMessage(_Msg(role: 'assistant', text: _emergencyNumbers()));
-      _updateChips(['🛡️ Safety tips', '🏥 Hospitals in Tunis', '⚠️ High risk areas', '🌙 Is it safe tonight?']);
+      _updateChips([
+        '🛡️ Safety tips',
+        '🏥 Hospitals in Tunis',
+        '⚠️ High risk areas',
+        '🌙 Is it safe tonight?'
+      ]);
       return;
     }
 
-    // ── City lookup ──
+    // ── City lookup ─────────────────────────────
     final city = _extractCity(text);
     if (city != null) {
       final data = await _queryCityData(city);
@@ -267,19 +347,30 @@ class _NimaChatPageState extends State<NimaChatPage>
           type: _MsgType.safetyCard,
           cardData: data,
         ));
-        _updateChips(['🌙 Night safety in $city', '📍 Safe areas near $city', '⚠️ What to avoid in $city', '🗺️ Nearby safe cities']);
+        _updateChips([
+          '🌙 Night safety in $city',
+          '📍 Safe areas near $city',
+          '⚠️ What to avoid in $city',
+          '🗺️ Nearby safe cities'
+        ]);
         return;
       } else {
         _addMessage(_Msg(
           role: 'assistant',
-          text: "I searched my database but couldn't find **$city** 🔍\n\nTry a different spelling, or ask me about major cities like *Tunis*, *Sousse*, *Hammamet*, or *Djerba*.",
+          text:
+              "I searched my database but couldn't find **$city** 🔍\n\nTry a different spelling, or ask me about major cities like *Tunis*, *Sousse*, *Hammamet*, or *Djerba*.",
         ));
-        _updateChips(['🏙️ Major cities safety', '🏖️ Safest cities', '🗺️ Explore Tunisia', '⚠️ Dangerous areas']);
+        _updateChips([
+          '🏙️ Major cities safety',
+          '🏖️ Safest cities',
+          '🗺️ Explore Tunisia',
+          '⚠️ Dangerous areas'
+        ]);
         return;
       }
     }
 
-    // ── Fallback ──
+    // ── Fallback ────────────────────────────────
     _addMessage(_Msg(role: 'assistant', text: _fallback(text)));
     _updateChips([
       "🏖️ Safest beach cities",
@@ -317,6 +408,26 @@ class _NimaChatPageState extends State<NimaChatPage>
   // ─────────────────────────────────────────────
   //  Smart text replies
   // ─────────────────────────────────────────────
+  String _smallTalkReply(String t) {
+    if (['hi', 'hello', 'hey', 'hola', 'salam', 'salut', 'bonjour']
+        .contains(t)) {
+      return "Hey there! 👋 I'm **Nima**, your safety guide for Tunisia 🇹🇳\n\nAsk me about any city, neighbourhood, or just where to go tonight!";
+    }
+    if (['thanks', 'thank you', 'thx'].contains(t)) {
+      return "You're welcome! 😊 Stay safe out there.\n\n💡 *Need anything else? Just ask!*";
+    }
+    if (['yes', 'yep', 'sure', 'ok', 'okay', 'alright'].contains(t)) {
+      return "Of course! 😊 What city or area would you like to know about?\n\nTry something like:\n• *\"Is Sousse safe?\"*\n• *\"Safest cities in Tunisia\"*\n• *\"Where to go tonight?\"*";
+    }
+    if (['no', 'nope'].contains(t)) {
+      return "No worries! 😊 Let me know if you need anything.\n\n💡 I'm here whenever you want safety info about Tunisia.";
+    }
+    if (['cool', 'great', 'nice', 'wow'].contains(t)) {
+      return "Glad I could help! 🙌\n\nAnything else you'd like to know about Tunisia?";
+    }
+    return "Got it! 😊 What city or area would you like to explore?\n\nJust type a city name or ask a question!";
+  }
+
   String _nightReply() => '''🌙 **Night Safety in Tunisia**
 
 Here's what you need to know for after-dark:
@@ -409,7 +520,8 @@ Here's what you need to know for after-dark:
       backgroundColor: _surface,
       elevation: 0,
       leading: IconButton(
-        icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 18),
+        icon: const Icon(Icons.arrow_back_ios_new_rounded,
+            color: Colors.white, size: 18),
         onPressed: () => Get.back(),
       ),
       title: Row(
@@ -424,9 +536,12 @@ Here's what you need to know for after-dark:
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
-              boxShadow: [BoxShadow(color: _accent.withOpacity(0.4), blurRadius: 8)],
+              boxShadow: [
+                BoxShadow(color: _accent.withOpacity(0.4), blurRadius: 8)
+              ],
             ),
-            child: const Icon(Icons.shield_moon_rounded, color: Colors.white, size: 18),
+            child: const Icon(Icons.shield_moon_rounded,
+                color: Colors.white, size: 18),
           ),
           const SizedBox(width: 10),
           Column(
@@ -441,15 +556,15 @@ Here's what you need to know for after-dark:
               Row(
                 children: [
                   Container(
-                    width: 6, height: 6,
+                    width: 6,
+                    height: 6,
                     decoration: const BoxDecoration(
-                      color: _green, shape: BoxShape.circle),
+                        color: _green, shape: BoxShape.circle),
                   ),
                   const SizedBox(width: 4),
                   Text('Safety AI · Tunisia',
                       style: TextStyle(
-                          color: Colors.white.withOpacity(0.5),
-                          fontSize: 11)),
+                          color: Colors.white.withOpacity(0.5), fontSize: 11)),
                 ],
               ),
             ],
@@ -511,7 +626,7 @@ Here's what you need to know for after-dark:
       curve: Curves.easeOutCubic,
       builder: (_, v, child) => Transform.translate(
         offset: Offset(0, 20 * (1 - v)),
-        child: Opacity(opacity: v, child: child),
+        child: Opacity(opacity: v.clamp(0.0, 1.0), child: child),
       ),
       child: Padding(
         padding: const EdgeInsets.only(bottom: 12),
@@ -522,7 +637,8 @@ Here's what you need to know for after-dark:
           children: [
             if (!isUser) ...[
               Container(
-                width: 28, height: 28,
+                width: 28,
+                height: 28,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: const LinearGradient(
@@ -534,9 +650,7 @@ Here's what you need to know for after-dark:
               const SizedBox(width: 8),
             ],
             Flexible(
-              child: isUser
-                  ? _buildUserBubble(msg)
-                  : _buildNimaBubble(msg),
+              child: isUser ? _buildUserBubble(msg) : _buildNimaBubble(msg),
             ),
             if (isUser) const SizedBox(width: 8),
           ],
@@ -568,8 +682,8 @@ Here's what you need to know for after-dark:
         ],
       ),
       child: Text(msg.text,
-          style: const TextStyle(
-              color: Colors.white, fontSize: 14, height: 1.5)),
+          style:
+              const TextStyle(color: Colors.white, fontSize: 14, height: 1.5)),
     );
   }
 
@@ -605,7 +719,6 @@ Here's what you need to know for after-dark:
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: lines.map((line) {
-        // Bold markdown **text**
         final boldPattern = RegExp(r'\*\*(.+?)\*\*');
         if (boldPattern.hasMatch(line)) {
           final spans = <TextSpan>[];
@@ -614,7 +727,10 @@ Here's what you need to know for after-dark:
             if (m.start > last) {
               spans.add(TextSpan(
                   text: line.substring(last, m.start),
-                  style: TextStyle(color: Colors.white.withOpacity(0.85), fontSize: 14, height: 1.6)));
+                  style: TextStyle(
+                      color: Colors.white.withOpacity(0.85),
+                      fontSize: 14,
+                      height: 1.6)));
             }
             spans.add(TextSpan(
                 text: m.group(1),
@@ -628,17 +744,22 @@ Here's what you need to know for after-dark:
           if (last < line.length) {
             spans.add(TextSpan(
                 text: line.substring(last),
-                style: TextStyle(color: Colors.white.withOpacity(0.85), fontSize: 14, height: 1.6)));
+                style: TextStyle(
+                    color: Colors.white.withOpacity(0.85),
+                    fontSize: 14,
+                    height: 1.6)));
           }
           return RichText(text: TextSpan(children: spans));
         }
-        // Italic *text*
         final italicPattern = RegExp(r'\*(.+?)\*');
         if (italicPattern.hasMatch(line) && !line.contains('**')) {
           return Text(
             line.replaceAllMapped(italicPattern, (m) => m.group(1)!),
             style: TextStyle(
-                color: Colors.white.withOpacity(0.85), fontSize: 14, height: 1.6, fontStyle: FontStyle.italic),
+                color: Colors.white.withOpacity(0.85),
+                fontSize: 14,
+                height: 1.6,
+                fontStyle: FontStyle.italic),
           );
         }
         return Text(
@@ -689,15 +810,19 @@ Here's what you need to know for after-dark:
           children: [
             // Header
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               decoration: BoxDecoration(
                 color: levelColor.withOpacity(0.12),
-                border: Border(bottom: BorderSide(color: levelColor.withOpacity(0.2))),
+                border: Border(
+                    bottom:
+                        BorderSide(color: levelColor.withOpacity(0.2))),
               ),
               child: Row(
                 children: [
                   Container(
-                    width: 40, height: 40,
+                    width: 40,
+                    height: 40,
                     decoration: BoxDecoration(
                       color: levelColor.withOpacity(0.15),
                       shape: BoxShape.circle,
@@ -720,7 +845,9 @@ Here's what you need to know for after-dark:
                         Text(
                           '${data['country'] ?? 'Tunisia'} · $levelLabel',
                           style: TextStyle(
-                              color: levelColor, fontSize: 12, fontWeight: FontWeight.w500),
+                              color: levelColor,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500),
                         ),
                       ],
                     ),
@@ -749,30 +876,26 @@ Here's what you need to know for after-dark:
                               fontWeight: FontWeight.w700)),
                       Text('/100',
                           style: TextStyle(
-                              color: Colors.white.withOpacity(0.3), fontSize: 11)),
+                              color: Colors.white.withOpacity(0.3),
+                              fontSize: 11)),
                     ],
                   ),
                   const SizedBox(height: 6),
                   ClipRRect(
                     borderRadius: BorderRadius.circular(4),
                     child: LinearProgressIndicator(
-                      value: (crimeIndex / 100).clamp(0, 1),
+                      value: (crimeIndex / 100).clamp(0.0, 1.0),
                       backgroundColor: Colors.white.withOpacity(0.1),
                       valueColor: AlwaysStoppedAnimation(levelColor),
                       minHeight: 6,
                     ),
                   ),
-
                   const SizedBox(height: 14),
-
-                  // Risk note
                   if (data['risk_note'] != null) ...[
                     _infoRow(Icons.info_outline_rounded, 'Risk Overview',
                         data['risk_note'] as String),
                     const SizedBox(height: 12),
                   ],
-
-                  // Night advice
                   if (data['night_advice'] != null) ...[
                     _infoRow(Icons.nightlight_round, 'Night Safety',
                         data['night_advice'] as String),
@@ -791,7 +914,8 @@ Here's what you need to know for after-dark:
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
-          width: 28, height: 28,
+          width: 28,
+          height: 28,
           decoration: BoxDecoration(
             color: _accent.withOpacity(0.1),
             borderRadius: BorderRadius.circular(8),
@@ -854,19 +978,29 @@ Here's what you need to know for after-dark:
             ...cities.map((c) {
               final crime = (c['crime_index'] as num?)?.toDouble() ?? 0;
               Color dot;
-              if (crime < 30) dot = _green;
-              else if (crime < 55) dot = _orange;
-              else dot = _red;
+              if (crime < 30) {
+                dot = _green;
+              } else if (crime < 55) {
+                dot = _orange;
+              } else {
+                dot = _red;
+              }
 
               return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 child: Row(
                   children: [
                     Container(
-                      width: 8, height: 8,
+                      width: 8,
+                      height: 8,
                       decoration: BoxDecoration(
-                          color: dot, shape: BoxShape.circle,
-                          boxShadow: [BoxShadow(color: dot.withOpacity(0.5), blurRadius: 4)]),
+                          color: dot,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                                color: dot.withOpacity(0.5), blurRadius: 4)
+                          ]),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -880,8 +1014,10 @@ Here's what you need to know for after-dark:
                                   fontWeight: FontWeight.w600)),
                           Text(
                             isDanger
-                                ? _truncate(c['risk_note'] as String? ?? '', 60)
-                                : _truncate(c['night_advice'] as String? ?? '', 60),
+                                ? _truncate(
+                                    c['risk_note'] as String? ?? '', 60)
+                                : _truncate(
+                                    c['night_advice'] as String? ?? '', 60),
                             style: TextStyle(
                                 color: Colors.white.withOpacity(0.45),
                                 fontSize: 12,
@@ -892,7 +1028,8 @@ Here's what you need to know for after-dark:
                     ),
                     const SizedBox(width: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
                         color: dot.withOpacity(0.12),
                         borderRadius: BorderRadius.circular(6),
@@ -913,8 +1050,7 @@ Here's what you need to know for after-dark:
                 isDanger
                     ? 'Tap a city name to learn more about it.'
                     : 'Ask me about any city for detailed safety info.',
-                style: TextStyle(
-                    color: _accent.withOpacity(0.6), fontSize: 11),
+                style: TextStyle(color: _accent.withOpacity(0.6), fontSize: 11),
               ),
             ),
           ],
@@ -936,7 +1072,8 @@ Here's what you need to know for after-dark:
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
               color: _card,
               borderRadius: BorderRadius.circular(16),
@@ -948,15 +1085,22 @@ Here's what you need to know for after-dark:
                 return Row(
                   mainAxisSize: MainAxisSize.min,
                   children: List.generate(3, (i) {
-                    final offset = ((_dotCtrl.value * 3 - i) % 3 + 3) % 3;
-                    final scale = offset < 1.5 ? 1.0 + 0.3 * sin(offset * pi) : 0.7;
+                    final offset =
+                        ((_dotCtrl.value * 3 - i) % 3 + 3) % 3;
+                    final scale =
+                        (offset < 1.5 ? 1.0 + 0.3 * sin(offset * pi) : 0.7)
+                            .clamp(0.7, 1.3);
                     return Transform.scale(
                       scale: scale,
                       child: Container(
-                        width: 6, height: 6,
-                        margin: const EdgeInsets.symmetric(horizontal: 2),
+                        width: 6,
+                        height: 6,
+                        margin:
+                            const EdgeInsets.symmetric(horizontal: 2),
                         decoration: BoxDecoration(
-                          color: _accent.withOpacity(0.4 + 0.6 * (scale - 0.7) / 0.3),
+                          color: _accent.withOpacity(
+                              (0.4 + 0.6 * (scale - 0.7) / 0.3)
+                                  .clamp(0.0, 1.0)),
                           shape: BoxShape.circle,
                         ),
                       ),
@@ -987,10 +1131,18 @@ Here's what you need to know for after-dark:
         itemCount: _chips.length,
         separatorBuilder: (_, __) => const SizedBox(width: 8),
         itemBuilder: (_, i) => GestureDetector(
-          onTap: () => _send(_chips[i].replaceAll(RegExp(r'^[\w\u{1F300}-\u{1FAFF}]\s*', unicode: true), '')),
+          onTap: () => _send(
+            _chips[i]
+                .replaceAll(
+                    RegExp(r'[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]\s*',
+                        unicode: true),
+                    '')
+                .trim(),
+          ),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 200),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             decoration: BoxDecoration(
               color: _accentSoft.withOpacity(0.4),
               borderRadius: BorderRadius.circular(20),
@@ -1017,7 +1169,8 @@ Here's what you need to know for after-dark:
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 20),
       decoration: BoxDecoration(
         color: _surface,
-        border: Border(top: BorderSide(color: Colors.white.withOpacity(0.06))),
+        border:
+            Border(top: BorderSide(color: Colors.white.withOpacity(0.06))),
       ),
       child: Row(
         children: [
@@ -1026,16 +1179,19 @@ Here's what you need to know for after-dark:
               decoration: BoxDecoration(
                 color: _card,
                 borderRadius: BorderRadius.circular(28),
-                border: Border.all(color: Colors.white.withOpacity(0.08)),
+                border:
+                    Border.all(color: Colors.white.withOpacity(0.08)),
               ),
               child: TextField(
                 controller: _ctrl,
                 onSubmitted: (_) => _send(),
-                style: const TextStyle(color: Colors.white, fontSize: 14),
+                style:
+                    const TextStyle(color: Colors.white, fontSize: 14),
                 decoration: InputDecoration(
                   hintText: 'Ask about any city or place…',
                   hintStyle: TextStyle(
-                      color: Colors.white.withOpacity(0.25), fontSize: 14),
+                      color: Colors.white.withOpacity(0.25),
+                      fontSize: 14),
                   border: InputBorder.none,
                   contentPadding: const EdgeInsets.symmetric(
                       horizontal: 18, vertical: 12),
@@ -1047,7 +1203,8 @@ Here's what you need to know for after-dark:
           GestureDetector(
             onTap: () => _send(),
             child: Container(
-              width: 46, height: 46,
+              width: 46,
+              height: 46,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: const LinearGradient(
@@ -1085,7 +1242,8 @@ Here's what you need to know for after-dark:
           children: [
             Center(
               child: Container(
-                  width: 36, height: 4,
+                  width: 36,
+                  height: 4,
                   decoration: BoxDecoration(
                       color: Colors.white.withOpacity(0.2),
                       borderRadius: BorderRadius.circular(2))),
