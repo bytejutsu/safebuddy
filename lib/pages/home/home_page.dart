@@ -12,7 +12,7 @@ class _HomePageState extends State<HomePage> {
   final RxBool isLocationSharingEnabled = true.obs;
   final RxBool isPeriodicalChecksEnabled = true.obs;
   final RxBool isAIProtectionEnabled = true.obs;
-  final RxInt periodicalCheckMinutes = 5.obs; // default = 5 min
+  final RxInt periodicalCheckMinutes = 5.obs;
 
   bool _prevPeriodical = true;
   bool _prevAI = true;
@@ -40,7 +40,6 @@ class _HomePageState extends State<HomePage> {
       case 1:
         Get.offAllNamed('/safety');
         break;
-    
       case 2:
         Get.offAllNamed('/profile');
         break;
@@ -50,7 +49,6 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  /// Full readable label e.g. "Every 5 min" / "Every 1h 30m"
   String _minuteLabel(int m) {
     if (m < 60) return 'Every $m min';
     final h = m ~/ 60;
@@ -59,7 +57,6 @@ class _HomePageState extends State<HomePage> {
     return 'Every ${h}h ${rem}m';
   }
 
-  /// Short label for the thumb bubble e.g. "5m" / "1h" / "1h30"
   String _minuteShort(int m) {
     if (m < 60) return '${m}m';
     final h = m ~/ 60;
@@ -175,8 +172,6 @@ class _HomePageState extends State<HomePage> {
                   activeIcon: Icon(Icons.shield),
                   label: 'Safety',
                 ),
-               
-              
                 BottomNavigationBarItem(
                   icon: Icon(Icons.person_outline),
                   activeIcon: Icon(Icons.person),
@@ -309,35 +304,54 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
 
-          // Tick labels
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: ticks.map((t) {
-                final isActive = enabled && currentMinutes >= t;
-                return Text(
-                  t == 1
-                      ? '1m'
-                      : t >= 60
-                          ? '${t ~/ 60}h'
-                          : '${t}m',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: isActive
-                        ? const Color(0xFF7B6FCD)
-                        : Colors.grey[400],
-                  ),
+          // Proportional tick labels
+          SizedBox(
+            height: 20,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                const double minVal = 1.0;
+                const double maxVal = 120.0;
+                return Stack(
+                  children: ticks.map((t) {
+                    final fraction = (t - minVal) / (maxVal - minVal);
+                    final leftOffset =
+                        fraction * (constraints.maxWidth - 24);
+
+                    String tickLabel;
+                    if (t < 60) {
+                      tickLabel = '${t}m';
+                    } else if (t == 60) {
+                      tickLabel = '1h';
+                    } else if (t == 90) {
+                      tickLabel = '1h30';
+                    } else {
+                      tickLabel = '2h';
+                    }
+
+                    final isActive = enabled && currentMinutes >= t;
+                    return Positioned(
+                      left: leftOffset,
+                      child: Text(
+                        tickLabel,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: isActive
+                              ? const Color(0xFF7B6FCD)
+                              : Colors.grey[400],
+                        ),
+                      ),
+                    );
+                  }).toList(),
                 );
-              }).toList(),
+              },
             ),
           ),
         ],
       );
     });
   }
-}
+} // ← closes _HomePageState
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Custom thumb that shows the current value inside a pill bubble
@@ -497,6 +511,8 @@ class _BigCircleToggle extends StatelessWidget {
     );
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 class _PillToggle extends StatelessWidget {
   const _PillToggle({required this.value, required this.onChanged});

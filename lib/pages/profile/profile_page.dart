@@ -282,16 +282,7 @@ class _ProfilePageState extends State<ProfilePage> {
             const Text('Choose Photo',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
-            ListTile(
-              leading: const CircleAvatar(
-                  backgroundColor: _blue,
-                  child: Icon(Icons.camera_alt, color: Colors.white)),
-              title: const Text('Take a photo'),
-              onTap: () async {
-                Navigator.pop(ctx);
-                await _pickFromSource(ImageSource.camera);
-              },
-            ),
+            
             ListTile(
               leading: const CircleAvatar(
                   backgroundColor: _indigo,
