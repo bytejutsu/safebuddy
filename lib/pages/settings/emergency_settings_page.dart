@@ -50,12 +50,12 @@ class _EmergencySettingsPageState extends State<EmergencySettingsPage> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.chevron_left, color: _blue, size: 28),
-          onPressed: () => Get.offAllNamed('/home'),
+          onPressed: () => Get.offAllNamed('/profile'),
         ),
         title: const Text(
           'Emergency Settings',
           style: TextStyle(
-            color: Colors.black87,
+             color: _blue,
             fontSize: 18,
             fontWeight: FontWeight.w600,
           ),

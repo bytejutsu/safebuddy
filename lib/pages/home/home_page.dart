@@ -78,20 +78,6 @@ class _HomePageState extends State<HomePage> {
         automaticallyImplyLeading: false,
         title: null,
         centerTitle: false,
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 16),
-            child: Image.asset(
-              'assets/logo.png',
-              height: 32,
-              errorBuilder: (_, __, ___) => const Icon(
-                Icons.security,
-                color: Color(0xFF2196F3),
-                size: 28,
-              ),
-            ),
-          ),
-        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
