@@ -11,8 +11,8 @@ import 'pages/contacts/contacts_page.dart';
 import 'pages/contacts/call_page.dart';
 import 'pages/profile/profile_page.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'services/ai_protection_service.dart'; // ← add this import
-
+import 'services/ai_protection_service.dart'; 
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -22,7 +22,8 @@ Future<void> main() async {
   );
 
   await AiProtectionService.init(); // ← add this
-
+  WidgetsFlutterBinding.ensureInitialized();
+  await dotenv.load(fileName: ".env");
   runApp(const MyApp());
 }
 

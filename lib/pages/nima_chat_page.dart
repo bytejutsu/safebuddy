@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
-
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 // ─────────────────────────────────────────────
 //  Data model
 // ─────────────────────────────────────────────
@@ -30,8 +30,9 @@ class _Msg {
 //  Groq Service
 // ─────────────────────────────────────────────
 class _GroqService {
-  static const _apiKey =
-      '';
+  static String get _apiKey =>
+      dotenv.env['GROQ_API_KEY']
+      ?? (throw Exception('GROQ_API_KEY not found in .env'));
   static const _url = 'https://api.groq.com/openai/v1/chat/completions';
 
   static Future<String> ask(List<Map<String, String>> messages) async {

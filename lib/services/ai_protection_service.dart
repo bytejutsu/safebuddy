@@ -4,9 +4,12 @@ import 'package:geocoding/geocoding.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class AiProtectionService {
-  static const _apiKey = 'YOUR_GROQ_KEY_HERE';
+  static String get _apiKey =>
+      dotenv.env['GROQ_API_KEY']
+      ?? (throw Exception('GROQ_API_KEY not found in .env'));
   static const _groqUrl = 'https://api.groq.com/openai/v1/chat/completions';
 
   static final _notifications = FlutterLocalNotificationsPlugin();
