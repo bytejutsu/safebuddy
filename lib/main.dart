@@ -11,6 +11,7 @@ import 'pages/contacts/contacts_page.dart';
 import 'pages/contacts/call_page.dart';
 import 'pages/profile/profile_page.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'services/ai_protection_service.dart'; // ← add this import
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -19,6 +20,9 @@ Future<void> main() async {
     url: 'https://hjkcyekgdpqkeijdntah.supabase.co',
     anonKey: 'sb_publishable_BZO0LBVdNsybm0Hh90xmLw_Ov2I-6oG',
   );
+
+  await AiProtectionService.init(); // ← add this
+
   runApp(const MyApp());
 }
 

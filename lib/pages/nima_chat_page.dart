@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 // ─────────────────────────────────────────────
@@ -25,10 +27,53 @@ class _Msg {
 }
 
 // ─────────────────────────────────────────────
+//  Groq Service
+// ─────────────────────────────────────────────
+class _GroqService {
+  static const _apiKey =
+      '';
+  static const _url = 'https://api.groq.com/openai/v1/chat/completions';
+
+  static Future<String> ask(List<Map<String, String>> messages) async {
+    try {
+      final response = await http.post(
+        Uri.parse(_url),
+        headers: {
+          'Authorization': 'Bearer $_apiKey',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'model': 'llama-3.1-8b-instant',
+          'messages': messages,
+          'max_tokens': 1024,
+          'temperature': 0.7,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['choices'][0]['message']['content'] as String;
+      } else {
+        debugPrint('❌ Groq error ${response.statusCode}: ${response.body}');
+        return "I'm having trouble connecting right now. Please try again.";
+      }
+    } catch (e) {
+      debugPrint('❌ Groq exception: $e');
+      return "Connection error. Please check your internet.";
+    }
+  }
+}
+
+// ─────────────────────────────────────────────
 //  Page
 // ─────────────────────────────────────────────
 class NimaChatPage extends StatefulWidget {
-  const NimaChatPage({super.key});
+  /// When provided (e.g. from Enhanced AI Protection), Nima will
+  /// automatically look up this city and greet the user with their
+  /// current location's safety info.
+  final String? initialCity;
+
+  const NimaChatPage({super.key, this.initialCity});
 
   @override
   State<NimaChatPage> createState() => _NimaChatPageState();
@@ -54,6 +99,20 @@ class _NimaChatPageState extends State<NimaChatPage>
   final _scrollCtrl = ScrollController();
   bool _isTyping = false;
 
+  // ── Groq conversation history ───────────────
+  final List<Map<String, String>> _groqHistory = [
+    {
+      'role': 'system',
+      'content':
+          '''You are Nima, an AI safety assistant specialized in Tunisia. 
+You help users understand safety conditions in Tunisian cities and neighborhoods.
+Keep responses concise, friendly, and safety-focused.
+Use emojis occasionally to make responses engaging.
+If asked about something unrelated to safety or Tunisia, gently redirect to your specialty.
+Always respond in the same language the user writes in.'''
+    }
+  ];
+
   // ── suggestion chips ────────────────────────
   List<String> _chips = [
     "🏖️ Safest beach cities",
@@ -74,13 +133,22 @@ class _NimaChatPageState extends State<NimaChatPage>
     )..repeat();
 
     Future.delayed(const Duration(milliseconds: 300), () {
-      if (mounted) {
-        setState(() {
-          _messages.add(_Msg(
-            role: 'assistant',
-            text:
-                "Hey! I'm **Nima**, your personal safety guide for Tunisia 🇹🇳\n\nI can tell you which cities are safe, what areas to avoid, and where to go at night. What would you like to know?",
-          ));
+      if (!mounted) return;
+
+      // ── greeting message ──────────────────────
+      setState(() {
+        _messages.add(_Msg(
+          role: 'assistant',
+          text: widget.initialCity != null
+              ? "Hey! I'm **Nima** 🛡️\n\nI can see you're in **${widget.initialCity}** — let me check your safety status right now!"
+              : "Hey! I'm **Nima**, your personal safety guide for Tunisia 🇹🇳\n\nI can tell you which cities are safe, what areas to avoid, and where to go at night. What would you like to know?",
+        ));
+      });
+
+      // ── if city provided, auto-query it ────────
+      if (widget.initialCity != null) {
+        Future.delayed(const Duration(milliseconds: 900), () {
+          if (mounted) _send('Is ${widget.initialCity} safe?');
         });
       }
     });
@@ -120,7 +188,6 @@ class _NimaChatPageState extends State<NimaChatPage>
   bool _isQuestion(String t) {
     final q = t.toLowerCase().trim();
 
-    // Words that are never city names
     const nonCityWords = {
       'yes', 'no', 'ok', 'okay', 'hi', 'hey', 'hello',
       'thanks', 'cool', 'great', 'nice', 'wow', 'sure', 'help', 'more',
@@ -354,24 +421,15 @@ class _NimaChatPageState extends State<NimaChatPage>
           '🗺️ Nearby safe cities'
         ]);
         return;
-      } else {
-        _addMessage(_Msg(
-          role: 'assistant',
-          text:
-              "I searched my database but couldn't find **$city** 🔍\n\nTry a different spelling, or ask me about major cities like *Tunis*, *Sousse*, *Hammamet*, or *Djerba*.",
-        ));
-        _updateChips([
-          '🏙️ Major cities safety',
-          '🏖️ Safest cities',
-          '🗺️ Explore Tunisia',
-          '⚠️ Dangerous areas'
-        ]);
-        return;
       }
     }
 
-    // ── Fallback ────────────────────────────────
-    _addMessage(_Msg(role: 'assistant', text: _fallback(text)));
+    // ── Groq LLM fallback ───────────────────────
+    _groqHistory.add({'role': 'user', 'content': text});
+    final reply = await _GroqService.ask(_groqHistory);
+    _groqHistory.add({'role': 'assistant', 'content': reply});
+
+    _addMessage(_Msg(role: 'assistant', text: reply));
     _updateChips([
       "🏖️ Safest beach cities",
       "🌙 Where to go tonight?",
@@ -428,7 +486,8 @@ class _NimaChatPageState extends State<NimaChatPage>
     return "Got it! 😊 What city or area would you like to explore?\n\nJust type a city name or ask a question!";
   }
 
-  String _nightReply() => '''🌙 **Night Safety in Tunisia**
+  String _nightReply() =>
+      '''🌙 **Night Safety in Tunisia**
 
 Here's what you need to know for after-dark:
 
@@ -451,7 +510,8 @@ Here's what you need to know for after-dark:
 
 💡 *Ask me about a specific city for detailed night safety info.*''';
 
-  String _safetyTips() => '''🛡️ **Safety Tips for Tunisia**
+  String _safetyTips() =>
+      '''🛡️ **Safety Tips for Tunisia**
 
 **In cities:**
 • Keep bags close in souks and busy markets
@@ -475,7 +535,8 @@ Here's what you need to know for after-dark:
 
 💡 *Ask me about a specific city or region for tailored advice.*''';
 
-  String _emergencyNumbers() => '''📞 **Emergency Numbers in Tunisia**
+  String _emergencyNumbers() =>
+      '''📞 **Emergency Numbers in Tunisia**
 
 🚔 **Police:** 197
 🚑 **SAMU (Ambulance):** 190
@@ -493,9 +554,6 @@ Here's what you need to know for after-dark:
 ⚠️ *In an emergency, 190 or 197 are the fastest responses.*
 💡 *Save these numbers offline — you may not have internet in an emergency.*''';
 
-  String _fallback(String input) =>
-      '''I'm not sure I understood that 🤔\n\nHere's what I can help you with:\n\n🏙️ **City safety** — *"Is Sousse safe?"*\n🟢 **Safest places** — *"Show me the safest cities"*\n🔴 **Areas to avoid** — *"What areas are dangerous?"*\n🌙 **Night safety** — *"Where to go tonight in Hammamet?"*\n🛡️ **Safety tips** — *"How do I stay safe in Tunisia?"*\n📞 **Emergency info** — *"Emergency numbers Tunisia"*\n\nJust type a city name or ask a question!''';
-
   // ─────────────────────────────────────────────
   //  Build
   // ─────────────────────────────────────────────
@@ -506,10 +564,38 @@ Here's what you need to know for after-dark:
       appBar: _buildAppBar(),
       body: Column(
         children: [
+          // ── AI Protection banner ──────────────
+          if (widget.initialCity != null) _buildLocationBanner(),
           Expanded(child: _buildMessageList()),
           _buildTypingIndicator(),
           _buildChipsRow(),
           _buildInputBar(),
+        ],
+      ),
+    );
+  }
+
+  /// Shows a subtle banner at the top when opened via AI Protection
+  Widget _buildLocationBanner() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: _accent.withOpacity(0.1),
+        border: Border(bottom: BorderSide(color: _accent.withOpacity(0.2))),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.my_location, color: _accent, size: 14),
+          const SizedBox(width: 8),
+          Text(
+            '🛡️ AI Protection active · ${widget.initialCity}',
+            style: TextStyle(
+              color: _accent,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
         ],
       ),
     );
@@ -562,9 +648,13 @@ Here's what you need to know for after-dark:
                         color: _green, shape: BoxShape.circle),
                   ),
                   const SizedBox(width: 4),
-                  Text('Safety AI · Tunisia',
-                      style: TextStyle(
-                          color: Colors.white.withOpacity(0.5), fontSize: 11)),
+                  Text(
+                    widget.initialCity != null
+                        ? 'AI Protection · ${widget.initialCity}'
+                        : 'Safety AI · Tunisia',
+                    style: TextStyle(
+                        color: Colors.white.withOpacity(0.5), fontSize: 11),
+                  ),
                 ],
               ),
             ],
@@ -765,7 +855,9 @@ Here's what you need to know for after-dark:
         return Text(
           line,
           style: TextStyle(
-              color: Colors.white.withOpacity(0.85), fontSize: 14, height: 1.6),
+              color: Colors.white.withOpacity(0.85),
+              fontSize: 14,
+              height: 1.6),
         );
       }).toList(),
     );
@@ -808,15 +900,13 @@ Here's what you need to know for after-dark:
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header
             Container(
               padding:
                   const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               decoration: BoxDecoration(
                 color: levelColor.withOpacity(0.12),
                 border: Border(
-                    bottom:
-                        BorderSide(color: levelColor.withOpacity(0.2))),
+                    bottom: BorderSide(color: levelColor.withOpacity(0.2))),
               ),
               child: Row(
                 children: [
@@ -855,13 +945,11 @@ Here's what you need to know for after-dark:
                 ],
               ),
             ),
-
             Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Crime index bar
                   Row(
                     children: [
                       Text('Crime Index',
@@ -1050,7 +1138,8 @@ Here's what you need to know for after-dark:
                 isDanger
                     ? 'Tap a city name to learn more about it.'
                     : 'Ask me about any city for detailed safety info.',
-                style: TextStyle(color: _accent.withOpacity(0.6), fontSize: 11),
+                style:
+                    TextStyle(color: _accent.withOpacity(0.6), fontSize: 11),
               ),
             ),
           ],
@@ -1179,8 +1268,7 @@ Here's what you need to know for after-dark:
               decoration: BoxDecoration(
                 color: _card,
                 borderRadius: BorderRadius.circular(28),
-                border:
-                    Border.all(color: Colors.white.withOpacity(0.08)),
+                border: Border.all(color: Colors.white.withOpacity(0.08)),
               ),
               child: TextField(
                 controller: _ctrl,
@@ -1190,8 +1278,7 @@ Here's what you need to know for after-dark:
                 decoration: InputDecoration(
                   hintText: 'Ask about any city or place…',
                   hintStyle: TextStyle(
-                      color: Colors.white.withOpacity(0.25),
-                      fontSize: 14),
+                      color: Colors.white.withOpacity(0.25), fontSize: 14),
                   border: InputBorder.none,
                   contentPadding: const EdgeInsets.symmetric(
                       horizontal: 18, vertical: 12),

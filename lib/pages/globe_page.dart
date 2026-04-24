@@ -8,7 +8,9 @@ import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:get/get.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'nima_chat_page.dart';
+import '../controllers/contacts_controller.dart';
 
 class _PlaceInfo {
   final String displayName;
@@ -81,6 +83,9 @@ class _GlobePageState extends State<GlobePage>
   static const _blue = Color(0xFF2196F3);
   static const _teal = Color(0xFF4FC3F7);
   static const _indigo = Color(0xFF6360B7);
+
+  final _db = Supabase.instance.client;
+  String? get _uid => _db.auth.currentUser?.id;
 
   @override
   void initState() {
@@ -155,6 +160,17 @@ class _GlobePageState extends State<GlobePage>
         timeLimit: const Duration(seconds: 15),
       );
 
+      // Save location to Supabase
+      if (_uid != null) {
+        try {
+          await _db.from('profiles').update({
+            'latitude': position.latitude,
+            'longitude': position.longitude,
+            'location_updated_at': DateTime.now().toUtc().toIso8601String(),
+          }).eq('id', _uid!);
+        } catch (_) {}
+      }
+
       final place = await _reverseGeocode(position.latitude, position.longitude);
       setState(() => _isLoadingLocation = false);
       _showPositionSheet(position, place);
@@ -197,25 +213,356 @@ class _GlobePageState extends State<GlobePage>
     if (await canLaunchUrl(uri)) await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
-  Future<void> _shareLocation(double lat, double lng, _PlaceInfo? place) async {
-    final mapsLink = 'https://www.google.com/maps/search/?api=1&query=$lat,$lng';
-    final placeName = place?.shortName.isNotEmpty == true ? place!.shortName : '';
-    final shareText = placeName.isNotEmpty
-        ? '📍 My current location: $placeName\n$mapsLink'
-        : '📍 My current location:\n$mapsLink';
+  String _initials(String name) {
+    final parts = name.trim().split(' ');
+    if (parts.length >= 2) return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+    return name.isEmpty ? '?' : name[0].toUpperCase();
+  }
 
-    final whatsappUri = Uri.parse('whatsapp://send?text=${Uri.encodeComponent(shareText)}');
-    if (await canLaunchUrl(whatsappUri)) {
-      await launchUrl(whatsappUri, mode: LaunchMode.externalApplication);
+  // ── Share location with emergency contacts ───────────────────────────────
+  Future<void> _showShareWithContactsSheet(
+      Position position, _PlaceInfo? place) async {
+    final ctrl = Get.find<ContactsController>();
+    final emergencyContacts = ctrl.contacts
+        .where((c) => c.category == 'Emergency')
+        .toList();
+
+    if (emergencyContacts.isEmpty) {
+      Get.snackbar(
+        '❌ No Emergency Contacts',
+        'Add Emergency contacts first to share your location.',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+        borderRadius: 12,
+        margin: const EdgeInsets.all(16),
+      );
+      return;
+    }
+
+    final locationUrl =
+        'https://www.google.com/maps/search/?api=1&query=${position.latitude},${position.longitude}';
+    final locationName = place?.shortName.isNotEmpty == true
+        ? place!.shortName
+        : '${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)}';
+
+    String myName = 'me';
+    if (_uid != null) {
+      try {
+        final profile = await _db
+            .from('profiles')
+            .select('full_name')
+            .eq('id', _uid!)
+            .single();
+        myName = profile['full_name'] ?? 'me';
+      } catch (_) {}
+    }
+
+    final Set<String> selected = {};
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => StatefulBuilder(
+        builder: (ctx, setState) => DraggableScrollableSheet(
+          initialChildSize: 0.65,
+          maxChildSize: 0.9,
+          minChildSize: 0.4,
+          builder: (_, scrollCtrl) => Container(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            child: Column(
+              children: [
+                const SizedBox(height: 12),
+                Container(
+                  width: 40, height: 4,
+                  decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(2)),
+                ),
+                const SizedBox(height: 16),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 44, height: 44,
+                        decoration: BoxDecoration(
+                            color: Colors.red.withOpacity(0.1),
+                            shape: BoxShape.circle),
+                        child: const Icon(Icons.share_location,
+                            color: Colors.red, size: 24),
+                      ),
+                      const SizedBox(width: 12),
+                      const Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Share Location',
+                              style: TextStyle(
+                                  fontSize: 18, fontWeight: FontWeight.bold)),
+                          Text('Select emergency contacts',
+                              style: TextStyle(
+                                  fontSize: 12, color: Colors.grey)),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: _blue.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: _blue.withOpacity(0.15)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.location_on, color: _blue, size: 18),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            locationName,
+                            style: const TextStyle(
+                                fontSize: 13,
+                                color: _blue,
+                                fontWeight: FontWeight.w500),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Expanded(
+                  child: ListView.builder(
+                    controller: scrollCtrl,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    itemCount: emergencyContacts.length,
+                    itemBuilder: (_, i) {
+                      final contact = emergencyContacts[i];
+                      final isSelected = selected.contains(contact.id);
+                      return GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            if (isSelected) {
+                              selected.remove(contact.id);
+                            } else {
+                              selected.add(contact.id);
+                            }
+                          });
+                        },
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          margin: const EdgeInsets.only(bottom: 10),
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? Colors.red.withOpacity(0.07)
+                                : Colors.grey[50],
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: isSelected
+                                  ? Colors.red.withOpacity(0.4)
+                                  : Colors.grey[200]!,
+                              width: isSelected ? 1.5 : 1,
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 44, height: 44,
+                                decoration: BoxDecoration(
+                                  color: Colors.red.withOpacity(0.1),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    _initials(contact.name),
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.red,
+                                        fontSize: 16),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(contact.name,
+                                        style: const TextStyle(
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w600)),
+                                    Text(contact.phone,
+                                        style: TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.grey[500])),
+                                  ],
+                                ),
+                              ),
+                              AnimatedContainer(
+                                duration: const Duration(milliseconds: 200),
+                                width: 26, height: 26,
+                                decoration: BoxDecoration(
+                                  color: isSelected
+                                      ? Colors.red
+                                      : Colors.transparent,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                      color: isSelected
+                                          ? Colors.red
+                                          : Colors.grey[400]!,
+                                      width: 2),
+                                ),
+                                child: isSelected
+                                    ? const Icon(Icons.check,
+                                        color: Colors.white, size: 16)
+                                    : null,
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+                  child: SizedBox(
+                    width: double.infinity,
+                    height: 52,
+                    child: ElevatedButton.icon(
+                      onPressed: selected.isEmpty
+                          ? null
+                          : () async {
+                              Navigator.pop(context);
+                              await _sendLocationToContacts(
+                                selected,
+                                emergencyContacts,
+                                myName,
+                                locationName,
+                                locationUrl,
+                                position,
+                                ctrl,
+                              );
+                            },
+                      icon: const Icon(Icons.send, color: Colors.white),
+                      label: Text(
+                        selected.isEmpty
+                            ? 'Select contacts'
+                            : 'Send to ${selected.length} contact${selected.length > 1 ? 's' : ''}',
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor:
+                            selected.isEmpty ? Colors.grey : Colors.red,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14)),
+                        elevation: 0,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── Send location messages to selected contacts ──────────────────────────
+  Future<void> _sendLocationToContacts(
+    Set<String> selectedIds,
+    List<TrustedContactModel> contacts,
+    String myName,
+    String locationName,
+    String locationUrl,
+    Position position,
+    ContactsController ctrl,
+  ) async {
+    if (_uid == null) return;
+
+    int successCount = 0;
+
+    for (final contact in contacts) {
+      if (!selectedIds.contains(contact.id)) continue;
+      if (contact.profileId == null) continue;
+
+      try {
+        // Check sharing history to determine first time or repeat
+        final history = await _db
+            .from('sharing_history')
+            .select()
+            .eq('user_id', _uid!)
+            .eq('contact_id', contact.id)
+            .order('started_at', ascending: false);
+
+        final isFirstTime = (history as List).isEmpty;
+
+        final message = isFirstTime
+            ? '👋 Hey, it\'s $myName! I\'m sharing my location with you for the first time.\n\n📍 I am currently at: $locationName\n\n🗺️ Open in Maps: $locationUrl'
+            : '👋 Hey, it\'s $myName again! Here is my updated location.\n\n📍 I am currently at: $locationName\n\n🗺️ Open in Maps: $locationUrl';
+
+        // Send message in chat
+        await _db.from('messages').insert({
+          'sender_id': _uid,
+          'receiver_id': contact.profileId,
+          'content': message,
+        });
+
+        // Record in sharing history
+        final now = DateTime.now().toUtc().toIso8601String();
+        await _db.from('sharing_history').insert({
+          'user_id': _uid,
+          'contact_id': contact.id,
+          'contact_name': contact.name,
+          'started_at': now,
+          'ended_at': now,
+          'duration_secs': 0,
+        });
+
+        successCount++;
+      } catch (e) {
+        debugPrint('Failed to send to ${contact.name}: $e');
+      }
+    }
+
+    await ctrl.fetchHistory();
+
+    if (successCount > 0) {
+      Get.snackbar(
+        '✅ Location Shared',
+        'Your location was sent to $successCount contact${successCount > 1 ? 's' : ''}.',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.green[600],
+        colorText: Colors.white,
+        borderRadius: 12,
+        margin: const EdgeInsets.all(16),
+        duration: const Duration(seconds: 3),
+      );
     } else {
-      await Clipboard.setData(ClipboardData(text: shareText));
-      Get.back();
-      Get.snackbar('✅ Copied!',
-          'Location link copied to clipboard — paste it anywhere to share.',
-          snackPosition: SnackPosition.BOTTOM,
-          backgroundColor: _blue, colorText: Colors.white,
-          borderRadius: 12, margin: const EdgeInsets.all(16),
-          duration: const Duration(seconds: 3));
+      Get.snackbar(
+        '❌ Failed',
+        'Could not share location. Make sure contacts have SafeBuddy accounts.',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+        borderRadius: 12,
+        margin: const EdgeInsets.all(16),
+      );
     }
   }
 
@@ -278,7 +625,9 @@ class _GlobePageState extends State<GlobePage>
                 _detailRow(Icons.signpost_outlined, 'Street', place.road),
               if (place.neighbourhood.isNotEmpty || place.suburb.isNotEmpty)
                 _detailRow(Icons.holiday_village_outlined, 'District',
-                    place.neighbourhood.isNotEmpty ? place.neighbourhood : place.suburb),
+                    place.neighbourhood.isNotEmpty
+                        ? place.neighbourhood
+                        : place.suburb),
               if (place.city.isNotEmpty)
                 _detailRow(Icons.location_city_outlined, 'City', place.city),
               if (place.state.isNotEmpty)
@@ -286,7 +635,8 @@ class _GlobePageState extends State<GlobePage>
               _detailRow(Icons.flag_outlined, 'Country',
                   '${place.countryCode.isNotEmpty ? _flagEmoji(place.countryCode) + ' ' : ''}${place.country}'),
               if (place.postcode.isNotEmpty)
-                _detailRow(Icons.markunread_mailbox_outlined, 'Postcode', place.postcode),
+                _detailRow(Icons.markunread_mailbox_outlined, 'Postcode',
+                    place.postcode),
             ] else ...[
               _detailRow(Icons.my_location, 'Latitude', latStr),
               _detailRow(Icons.explore_outlined, 'Longitude', lngStr),
@@ -298,14 +648,17 @@ class _GlobePageState extends State<GlobePage>
             Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              decoration: BoxDecoration(color: Colors.grey[50],
+              decoration: BoxDecoration(
+                  color: Colors.grey[50],
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: Colors.grey[200]!)),
               child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                 Icon(Icons.pin_drop_outlined, size: 16, color: Colors.grey[500]),
                 const SizedBox(width: 8),
                 Text('$latStr  ·  $lngStr',
-                    style: TextStyle(fontSize: 12, color: Colors.grey[600],
+                    style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey[600],
                         fontFamily: 'monospace')),
               ]),
             ),
@@ -313,47 +666,126 @@ class _GlobePageState extends State<GlobePage>
             Row(children: [
               Expanded(flex: 3, child: SizedBox(height: 50,
                 child: ElevatedButton.icon(
-                  onPressed: () => _openGoogleMaps(position.latitude, position.longitude),
+                  onPressed: () => _openGoogleMaps(
+                      position.latitude, position.longitude),
                   icon: const Icon(Icons.map, color: Colors.white, size: 20),
                   label: const Text('Google Maps',
-                      style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
-                  style: ElevatedButton.styleFrom(backgroundColor: _blue,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600)),
+                  style: ElevatedButton.styleFrom(
+                      backgroundColor: _blue,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14)),
                       elevation: 0),
                 ))),
               const SizedBox(width: 10),
               Expanded(flex: 2, child: SizedBox(height: 50,
                 child: ElevatedButton.icon(
-                  onPressed: () => _openStreetView(position.latitude, position.longitude),
-                  icon: const Icon(Icons.streetview, color: Colors.white, size: 20),
+                  onPressed: () => _openStreetView(
+                      position.latitude, position.longitude),
+                  icon: const Icon(Icons.streetview,
+                      color: Colors.white, size: 20),
                   label: const Text('Street',
-                      style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
-                  style: ElevatedButton.styleFrom(backgroundColor: _blue,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600)),
+                  style: ElevatedButton.styleFrom(
+                      backgroundColor: _blue,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14)),
                       elevation: 0),
                 ))),
             ]),
             const SizedBox(height: 10),
-            SizedBox(width: double.infinity, height: 50,
+            // ── Share with SafeBuddy Emergency Contacts ──────────────────
+            SizedBox(
+              width: double.infinity,
+              height: 50,
               child: ElevatedButton.icon(
-                onPressed: () => _shareLocation(position.latitude, position.longitude, place),
-                icon: const Icon(Icons.share, color: Colors.white, size: 20),
-                label: const Text('Share Your Location',
-                    style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600)),
-                style: ElevatedButton.styleFrom(backgroundColor: _indigo,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                onPressed: () {
+                  Get.back();
+                  _showShareWithContactsSheet(position, place);
+                },
+                icon: const Icon(Icons.share_location,
+                    color: Colors.white, size: 20),
+                label: const Text('Share with Emergency Contacts',
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600)),
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14)),
                     elevation: 0),
-              )),
+              ),
+            ),
             const SizedBox(height: 10),
-            SizedBox(width: double.infinity, height: 50,
+            // ── Share via WhatsApp/Clipboard ─────────────────────────────
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: ElevatedButton.icon(
+                onPressed: () async {
+                  final mapsLink =
+                      'https://www.google.com/maps/search/?api=1&query=${position.latitude},${position.longitude}';
+                  final placeName = place?.shortName.isNotEmpty == true
+                      ? place!.shortName
+                      : '';
+                  final shareText = placeName.isNotEmpty
+                      ? '📍 My current location: $placeName\n$mapsLink'
+                      : '📍 My current location:\n$mapsLink';
+                  final whatsappUri = Uri.parse(
+                      'whatsapp://send?text=${Uri.encodeComponent(shareText)}');
+                  if (await canLaunchUrl(whatsappUri)) {
+                    await launchUrl(whatsappUri,
+                        mode: LaunchMode.externalApplication);
+                  } else {
+                    await Clipboard.setData(ClipboardData(text: shareText));
+                    Get.back();
+                    Get.snackbar('✅ Copied!',
+                        'Location link copied to clipboard.',
+                        snackPosition: SnackPosition.BOTTOM,
+                        backgroundColor: _blue,
+                        colorText: Colors.white,
+                        borderRadius: 12,
+                        margin: const EdgeInsets.all(16),
+                        duration: const Duration(seconds: 3));
+                  }
+                },
+                icon: const Icon(Icons.share, color: Colors.white, size: 20),
+                label: const Text('Share via WhatsApp',
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600)),
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: _indigo,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14)),
+                    elevation: 0),
+              ),
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              height: 50,
               child: OutlinedButton(
                 onPressed: () => Get.back(),
                 style: OutlinedButton.styleFrom(
                     side: BorderSide(color: Colors.grey[300]!),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14))),
                 child: const Text('Close',
-                    style: TextStyle(color: Colors.black87, fontSize: 16, fontWeight: FontWeight.w500)),
-              )),
+                    style: TextStyle(
+                        color: Colors.black87,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500)),
+              ),
+            ),
           ],
         ),
       ),
@@ -373,10 +805,17 @@ class _GlobePageState extends State<GlobePage>
       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Icon(icon, size: 18, color: _blue),
         const SizedBox(width: 12),
-        SizedBox(width: 90, child: Text(label,
-            style: TextStyle(fontSize: 13, color: Colors.grey[500], fontWeight: FontWeight.w500))),
-        Expanded(child: Text(value,
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
+        SizedBox(
+            width: 90,
+            child: Text(label,
+                style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.grey[500],
+                    fontWeight: FontWeight.w500))),
+        Expanded(
+            child: Text(value,
+                style: const TextStyle(
+                    fontSize: 13, fontWeight: FontWeight.w600))),
       ]),
     );
   }
@@ -402,8 +841,12 @@ class _GlobePageState extends State<GlobePage>
                           width: 220, height: 220,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            boxShadow: [BoxShadow(color: _teal.withOpacity(0.2),
-                                blurRadius: 56, spreadRadius: 28)],
+                            boxShadow: [
+                              BoxShadow(
+                                  color: _teal.withOpacity(0.2),
+                                  blurRadius: 56,
+                                  spreadRadius: 28)
+                            ],
                           ),
                         ),
                         AnimatedBuilder(
@@ -411,21 +854,27 @@ class _GlobePageState extends State<GlobePage>
                           builder: (_, __) => CustomPaint(
                             size: const Size(210, 210),
                             painter: _PixelGlobePainter(
-                                rotation: _rotationController.value * 2 * pi),
+                                rotation:
+                                    _rotationController.value * 2 * pi),
                           ),
                         ),
                         if (_isLoadingLocation)
                           Container(
                             width: 210, height: 210,
-                            decoration: BoxDecoration(shape: BoxShape.circle,
+                            decoration: BoxDecoration(
+                                shape: BoxShape.circle,
                                 color: Colors.white.withOpacity(0.8)),
-                            child: Column(mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const CircularProgressIndicator(color: _blue),
-                                const SizedBox(height: 12),
-                                Text('Getting location...',
-                                    style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-                              ]),
+                            child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const CircularProgressIndicator(
+                                      color: _blue),
+                                  const SizedBox(height: 12),
+                                  Text('Getting location...',
+                                      style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey[600])),
+                                ]),
                           ),
                       ],
                     ),
@@ -438,22 +887,30 @@ class _GlobePageState extends State<GlobePage>
                           ? _locationStatus
                           : 'The AI is constantly analyzing global\ndata to ensure your safety',
                       textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 14,
-                          color: _locationStatus.isNotEmpty ? Colors.redAccent : Colors.grey[600],
+                      style: TextStyle(
+                          fontSize: 14,
+                          color: _locationStatus.isNotEmpty
+                              ? Colors.redAccent
+                              : Colors.grey[600],
                           height: 1.5),
                     ),
                   ),
                   if (!_isLoadingLocation && _locationStatus.isEmpty) ...[
                     const SizedBox(height: 10),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      decoration: BoxDecoration(color: _teal.withOpacity(0.1),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                          color: _teal.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(20)),
                       child: Row(mainAxisSize: MainAxisSize.min, children: [
-                        Icon(Icons.touch_app, size: 16, color: _teal.withOpacity(0.9)),
+                        Icon(Icons.touch_app,
+                            size: 16, color: _teal.withOpacity(0.9)),
                         const SizedBox(width: 6),
                         Text('Tap the globe to locate yourself',
-                            style: TextStyle(fontSize: 12, color: _teal.withOpacity(0.9),
+                            style: TextStyle(
+                                fontSize: 12,
+                                color: _teal.withOpacity(0.9),
                                 fontWeight: FontWeight.w500)),
                       ]),
                     ),
@@ -462,7 +919,6 @@ class _GlobePageState extends State<GlobePage>
                 ],
               ),
             ),
-
             Positioned(
               bottom: 24,
               right: 24,
@@ -479,13 +935,19 @@ class _GlobePageState extends State<GlobePage>
                       end: Alignment.bottomRight,
                     ),
                     shape: BoxShape.circle,
-                    boxShadow: [BoxShadow(color: _indigo.withOpacity(0.45),
-                        blurRadius: 14, offset: const Offset(0, 5))],
+                    boxShadow: [
+                      BoxShadow(
+                          color: _indigo.withOpacity(0.45),
+                          blurRadius: 14,
+                          offset: const Offset(0, 5))
+                    ],
                   ),
                   child: const Center(
                     child: Text('N',
-                        style: TextStyle(color: Colors.white,
-                            fontWeight: FontWeight.bold, fontSize: 22)),
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 22)),
                   ),
                 ),
               ),
@@ -495,7 +957,9 @@ class _GlobePageState extends State<GlobePage>
       ),
       bottomNavigationBar: Obx(() => Container(
             decoration: BoxDecoration(boxShadow: [
-              BoxShadow(color: _blue.withOpacity(0.3), blurRadius: 10,
+              BoxShadow(
+                  color: _blue.withOpacity(0.3),
+                  blurRadius: 10,
                   offset: const Offset(0, -2)),
             ]),
             child: BottomNavigationBar(
@@ -504,18 +968,26 @@ class _GlobePageState extends State<GlobePage>
               backgroundColor: _blue,
               selectedItemColor: Colors.white,
               unselectedItemColor: Colors.white.withOpacity(0.6),
-              selectedFontSize: 12, unselectedFontSize: 12,
+              selectedFontSize: 12,
+              unselectedFontSize: 12,
               onTap: _handleNavigation,
               items: const [
-                BottomNavigationBarItem(icon: Icon(Icons.home_outlined),
-                    activeIcon: Icon(Icons.home), label: 'Home'),
-                BottomNavigationBarItem(icon: Icon(Icons.shield_outlined),
-                    activeIcon: Icon(Icons.shield), label: 'Safety'),
-              
-                BottomNavigationBarItem(icon: Icon(Icons.person_outline),
-                    activeIcon: Icon(Icons.person), label: 'Profile'),
-                BottomNavigationBarItem(icon: Icon(Icons.contact_support_outlined),
-                    activeIcon: Icon(Icons.contact_support), label: 'Contact'),
+                BottomNavigationBarItem(
+                    icon: Icon(Icons.home_outlined),
+                    activeIcon: Icon(Icons.home),
+                    label: 'Home'),
+                BottomNavigationBarItem(
+                    icon: Icon(Icons.shield_outlined),
+                    activeIcon: Icon(Icons.shield),
+                    label: 'Safety'),
+                BottomNavigationBarItem(
+                    icon: Icon(Icons.person_outline),
+                    activeIcon: Icon(Icons.person),
+                    label: 'Profile'),
+                BottomNavigationBarItem(
+                    icon: Icon(Icons.contact_support_outlined),
+                    activeIcon: Icon(Icons.contact_support),
+                    label: 'Contact'),
               ],
             ),
           )),
@@ -576,7 +1048,8 @@ class _PixelGlobePainter extends CustomPainter {
           const Color(0xFF0277BD),
           depth,
         )!.withOpacity(opacity);
-        canvas.drawCircle(Offset(cx + x, cy + y), dotR, Paint()..color = color);
+        canvas.drawCircle(
+            Offset(cx + x, cy + y), dotR, Paint()..color = color);
       }
     }
 
@@ -589,8 +1062,12 @@ class _PixelGlobePainter extends CustomPainter {
       final z = r * cos(lat) * cos(lon);
       if (z > 30) {
         final depth = (z + r) / (2 * r);
-        canvas.drawCircle(Offset(cx + x, cy + y), 1.0,
-            Paint()..color = const Color(0xFF80DEEA).withOpacity(0.1 + depth * 0.12));
+        canvas.drawCircle(
+            Offset(cx + x, cy + y),
+            1.0,
+            Paint()
+              ..color = const Color(0xFF80DEEA)
+                  .withOpacity(0.1 + depth * 0.12));
       }
     }
   }

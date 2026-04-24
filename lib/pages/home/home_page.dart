@@ -1,6 +1,9 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-
+import 'package:geolocator/geolocator.dart';
+import 'package:http/http.dart' as http;
+import 'package:safebddy/pages/nima_chat_page.dart';
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
@@ -16,6 +19,7 @@ class _HomePageState extends State<HomePage> {
 
   bool _prevPeriodical = true;
   bool _prevAI = true;
+  bool _isLocating = false;
 
   final RxInt selectedIndex = 0.obs;
 
@@ -65,6 +69,111 @@ class _HomePageState extends State<HomePage> {
     return '${h}h${rem}';
   }
 
+  // ─────────────────────────────────────────────
+  //  Location + reverse geocode
+  // ─────────────────────────────────────────────
+  Future<String?> _getCityFromLocation() async {
+    try {
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) return null;
+      }
+      if (permission == LocationPermission.deniedForever) {
+        _showPermissionDialog();
+        return null;
+      }
+
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+        timeLimit: const Duration(seconds: 15),
+      );
+
+      final url = Uri.parse(
+        'https://nominatim.openstreetmap.org/reverse'
+        '?format=jsonv2&lat=${position.latitude}&lon=${position.longitude}'
+        '&addressdetails=1&accept-language=en',
+      );
+      final response = await http
+          .get(url, headers: {'User-Agent': 'SafeBuddy/1.0'}).timeout(
+        const Duration(seconds: 8),
+      );
+
+      if (response.statusCode == 200) {
+        final addr =
+            (jsonDecode(response.body)['address'] as Map<String, dynamic>?) ??
+                {};
+        return addr['city'] as String? ??
+            addr['town'] as String? ??
+            addr['village'] as String? ??
+            addr['county'] as String?;
+      }
+    } catch (e) {
+      debugPrint('Location error: $e');
+    }
+    return null;
+  }
+
+  void _showPermissionDialog() {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Permission Required',
+            style:
+                TextStyle(fontWeight: FontWeight.bold, color: _blue)),
+        content: const Text(
+            'Please enable location permission in app settings to use AI Protection.'),
+        actions: [
+          TextButton(
+              onPressed: () => Get.back(),
+              child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () async {
+              Get.back();
+              await Geolocator.openAppSettings();
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: _blue),
+            child: const Text('Open Settings',
+                style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─────────────────────────────────────────────
+  //  AI Protection toggle handler
+  // ─────────────────────────────────────────────
+  Future<void> _handleAIProtectionToggle(bool v) async {
+    isAIProtectionEnabled.value = v;
+
+    if (v) {
+      setState(() => _isLocating = true);
+
+      Get.snackbar(
+        '🛡️ AI Protection Active',
+        'Locating you for Nima...',
+        backgroundColor: _blue,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 2),
+        snackPosition: SnackPosition.TOP,
+        borderRadius: 12,
+        margin: const EdgeInsets.all(16),
+        icon: const Icon(Icons.my_location, color: Colors.white),
+      );
+
+      final city = await _getCityFromLocation();
+      setState(() => _isLocating = false);
+
+      Get.to(
+        () => NimaChatPage(initialCity: city),
+        transition: Transition.downToUp,
+        duration: const Duration(milliseconds: 350),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -101,7 +210,8 @@ class _HomePageState extends State<HomePage> {
             const Text(
               'share your location periodically with the persons you trust',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 14, color: Colors.black54, height: 1.4),
+              style: TextStyle(
+                  fontSize: 14, color: Colors.black54, height: 1.4),
             ),
             const SizedBox(height: 36),
             Obx(() => _buildPillRow(
@@ -133,11 +243,51 @@ class _HomePageState extends State<HomePage> {
                   )
                 : const SizedBox.shrink()),
             const SizedBox(height: 36),
+
+            // ── Enhanced AI Protection row ──────────────
             Obx(() => _buildPillRow(
                   title: 'Enhanced AI Protection',
                   value: isAIProtectionEnabled,
                   enabled: isLocationSharingEnabled.value,
+                  onToggle: _handleAIProtectionToggle,
                 )),
+
+            // ── Subtitle under AI Protection ────────────
+            const SizedBox(height: 10),
+            Obx(() => isLocationSharingEnabled.value
+                ? Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: Row(
+                      children: [
+                        Icon(
+                          _isLocating
+                              ? Icons.location_searching
+                              : Icons.shield_moon_outlined,
+                          size: 14,
+                          color: isAIProtectionEnabled.value
+                              ? _blue
+                              : Colors.grey[400],
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            _isLocating
+                                ? 'Getting your location for Nima...'
+                                : 'Nima will analyse your location and give real-time safety advice',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: isAIProtectionEnabled.value
+                                  ? Colors.black54
+                                  : Colors.grey[400],
+                              height: 1.4,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : const SizedBox.shrink()),
+
             const SizedBox(height: 40),
           ],
         ),
@@ -192,6 +342,7 @@ class _HomePageState extends State<HomePage> {
     required String title,
     required RxBool value,
     required bool enabled,
+    Future<void> Function(bool)? onToggle,
   }) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -207,7 +358,15 @@ class _HomePageState extends State<HomePage> {
         ),
         _PillToggle(
           value: value.value,
-          onChanged: enabled ? (v) => value.value = v : null,
+          onChanged: enabled
+              ? (v) {
+                  if (onToggle != null) {
+                    onToggle(v);
+                  } else {
+                    value.value = v;
+                  }
+                }
+              : null,
         ),
       ],
     );
@@ -222,7 +381,6 @@ class _HomePageState extends State<HomePage> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Live badge
           Row(
             children: [
               AnimatedContainer(
@@ -267,10 +425,7 @@ class _HomePageState extends State<HomePage> {
               ),
             ],
           ),
-
           const SizedBox(height: 6),
-
-          // Slider
           SliderTheme(
             data: SliderThemeData(
               trackHeight: 5,
@@ -300,11 +455,10 @@ class _HomePageState extends State<HomePage> {
               max: 120,
               divisions: 119,
               value: currentMinutes.toDouble(),
-              onChanged: enabled ? (v) => minutes.value = v.round() : null,
+              onChanged:
+                  enabled ? (v) => minutes.value = v.round() : null,
             ),
           ),
-
-          // Proportional tick labels
           SizedBox(
             height: 20,
             child: LayoutBuilder(
@@ -351,12 +505,11 @@ class _HomePageState extends State<HomePage> {
       );
     });
   }
-} // ← closes _HomePageState
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Custom thumb that shows the current value inside a pill bubble
+// Custom thumb
 // ─────────────────────────────────────────────────────────────────────────────
-
 class _BubbleThumbShape extends SliderComponentShape {
   final String label;
   final bool enabled;
@@ -393,7 +546,6 @@ class _BubbleThumbShape extends SliderComponentShape {
 
     final fillColor = enabled ? _purple : Colors.grey[400]!;
 
-    // Shadow
     final shadowPaint = Paint()
       ..color = fillColor.withValues(alpha: 0.25)
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
@@ -407,7 +559,6 @@ class _BubbleThumbShape extends SliderComponentShape {
     );
     canvas.drawRRect(shadowRect, shadowPaint);
 
-    // Pill body
     final pillRect = RRect.fromRectAndRadius(
       Rect.fromCenter(
         center: center.translate(0, -(pillH / 2 + stemH)),
@@ -418,7 +569,6 @@ class _BubbleThumbShape extends SliderComponentShape {
     );
     canvas.drawRRect(pillRect, Paint()..color = fillColor);
 
-    // Stem triangle pointing down
     final stemPath = Path()
       ..moveTo(center.dx - 5, center.dy - stemH)
       ..lineTo(center.dx + 5, center.dy - stemH)
@@ -426,13 +576,11 @@ class _BubbleThumbShape extends SliderComponentShape {
       ..close();
     canvas.drawPath(stemPath, Paint()..color = fillColor);
 
-    // Circle thumb dot
     canvas.drawCircle(
         center, 7, Paint()..color = enabled ? _purple : Colors.grey[400]!);
     canvas.drawCircle(
         center, 4, Paint()..color = Colors.white.withValues(alpha: 0.9));
 
-    // Label text
     final tp = TextPainter(
       text: TextSpan(
         text: label,
@@ -456,7 +604,6 @@ class _BubbleThumbShape extends SliderComponentShape {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-
 class _BigCircleToggle extends StatelessWidget {
   const _BigCircleToggle({required this.value, required this.onChanged});
 
@@ -513,7 +660,6 @@ class _BigCircleToggle extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-
 class _PillToggle extends StatelessWidget {
   const _PillToggle({required this.value, required this.onChanged});
 
